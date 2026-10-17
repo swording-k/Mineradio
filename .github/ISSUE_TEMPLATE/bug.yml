@@ -1,0 +1,35 @@
+name: Bug / 播放与客户端问题
+description: 记录可复现的问题和验收标准
+labels: [bug]
+body:
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 受影响的平台
+      multiple: true
+      options: [macOS Apple Silicon, macOS Intel, Windows x64, Windows ARM / VM, 官网]
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 应用版本 / commit 与系统版本
+      placeholder: community.2 / macOS 版本 / M 系列芯片
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤、实际结果与预期结果
+      description: 如涉及音乐平台，写平台和歌曲名；不要上传 Cookie、密码或带授权参数的音源链接。
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 截图、录屏或脱敏日志
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 怎样才算修好
+      placeholder: 同一首歌曲自然播放超过 30 秒，拖到后半段仍播放；不自动换平台。

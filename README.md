@@ -2,7 +2,7 @@
 
 > **swording-k 社区分支**：本仓库在最新公开主线与原作者 Mac 适配源码基础上继续开发。产品名为 Mineradio，本分支由 swording-k 独立维护。原作者与第三方署名、GPL-3.0-only 许可证保持有效。
 >
-> **[产品网站](https://swording-k.github.io/Mineradio/) · [Mac 下载与版本说明](https://github.com/swording-k/Mineradio/releases/tag/v2.2.0-community.3) · [Mac 构建说明](docs/MACOS.md)**
+> **[产品网站](https://swording-k.github.io/Mineradio/) · [Mac 下载与版本说明](https://github.com/swording-k/Mineradio/releases/tag/v2.2.0-community.2) · [Mac 构建说明](docs/MACOS.md)**
 >
 > 当前 Apple Silicon 包为社区预览，分发签名及公证状态以 Release 为准；iPad 与 iPhone 尚未提供客户端。以下为原项目保留说明。
 
@@ -123,3 +123,13 @@ Copyright (C) 2026 XxHuberrr.
 本项目采用 GPL-3.0 授权。详见 [LICENSE](./LICENSE)。
 
 MR Logo、Mineradio 名称、界面视觉设计与原创视觉表达归作者所有；第三方依赖和第三方服务分别遵循其各自授权与服务条款。
+
+## 社区开发与问题追踪
+
+[开发与跨平台验证](docs/DEVELOPMENT.md) · [发布与验收状态](docs/RELEASE_STATUS.md) ·
+[提交问题](https://github.com/swording-k/Mineradio/issues/new/choose) ·
+[Mac 稳定版验收里程碑](https://github.com/swording-k/Mineradio/milestone/1)
+
+当前官网 Mac 下载保持 community.2，Windows 指向原作者 v2.2.0；本机候选修复
+完成稳定性验收前不替换公开安装包。每个独立问题通过 Issue → 分支/PR → 平台验证
+→ Release 追踪；共用一条主线，不为每个平台长期分叉。

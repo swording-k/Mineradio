@@ -1,0 +1,22 @@
+name: Feature / 功能与改进
+description: 说明用户问题、目标平台与验收方式
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解决什么使用问题
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 目标平台、期望行为与本次不做的范围
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+    validations:
+      required: true
