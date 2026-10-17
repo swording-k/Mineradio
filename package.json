@@ -66,7 +66,8 @@
         "NSCameraUsageDescription": "启用手势控制时，Mineradio 使用摄像头在本机识别手势以控制播放。"
       },
       "signIgnore": [
-        "\\.lproj/locale\\.pak$"
+        "\\.(?:pak|png|jpe?g|gif|webp|ico|icns|bmp|ttf|woff2?|wasm|dat)$",
+        "(?:snapshot_blob|v8_context_snapshot)\\.bin$"
       ]
     },
     "dmg": {
