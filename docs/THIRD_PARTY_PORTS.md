@@ -76,3 +76,12 @@ The web security runtime resources under `qishui-auth-v6/` are retained
 byte-for-byte for protocol compatibility and remain the property of their
 respective rights holders. They are loaded only inside the isolated authentication
 partition for the user's own official login session.
+
+## Qishui Mac request-signature API reference
+
+`desktop/qishui-native-playback.js` is an independent adapter for the user's
+locally installed, signature-verified official Qishui Mac 2.9.1 client. The
+`init` / `generateHttpSignatureHeaders` API was cross-checked against
+[libmssdk](https://github.com/sodahub-org/libmssdk) (MIT, Copyright (c) 2026
+ZephyrCheung) and the installed client's matching Mac request contract. No code
+or proprietary native binaries from that client are bundled or redistributed.
