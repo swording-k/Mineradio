@@ -64,7 +64,10 @@
       "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
         "NSCameraUsageDescription": "启用手势控制时，Mineradio 使用摄像头在本机识别手势以控制播放。"
-      }
+      },
+      "signIgnore": [
+        "\\.lproj/locale\\.pak$"
+      ]
     },
     "dmg": {
       "title": "Mineradio ${version}",

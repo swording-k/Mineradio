@@ -72,3 +72,5 @@ npm run build:mac:release
 - Developer ID 签名包：设置已授权的 `CSC_NAME` 后运行 `./script/package_mac.sh signed`。
 - 已有钥匙串公证 profile：同时设置 `CSC_NAME` 与 `APPLE_KEYCHAIN_PROFILE` 后运行 `./script/package_mac.sh notarized`。不得将密码、密钥或公证凭据写入仓库。
 - 社区下载与官网在自己的 Release 和 GitHub Pages 提供。DMG、ZIP、SHA256 与对应 tag 源码应一并保留，签名、公证与运行验收分别标明。
+
+Mac 签名配置跳过单独签名 `*.lproj/locale.pak` 语言数据文件；这些文件仍被 Framework 与应用的资源封印覆盖。可执行程序、Framework 与原生动态库仍完整签名并通过严格校验。
