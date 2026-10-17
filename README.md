@@ -123,3 +123,13 @@ Copyright (C) 2026 XxHuberrr.
 本项目采用 GPL-3.0 授权。详见 [LICENSE](./LICENSE)。
 
 MR Logo、Mineradio 名称、界面视觉设计与原创视觉表达归作者所有；第三方依赖和第三方服务分别遵循其各自授权与服务条款。
+
+## 社区开发与问题追踪
+
+[开发与跨平台验证](docs/DEVELOPMENT.md) · [发布与验收状态](docs/RELEASE_STATUS.md) ·
+[提交问题](https://github.com/swording-k/Mineradio/issues/new/choose) ·
+[Mac 稳定版验收里程碑](https://github.com/swording-k/Mineradio/milestone/1)
+
+当前官网 Mac 下载保持 community.2，Windows 指向原作者 v2.2.0；本机候选修复
+完成稳定性验收前不替换公开安装包。每个独立问题通过 Issue → 分支/PR → 平台验证
+→ Release 追踪；共用一条主线，不为每个平台长期分叉。
