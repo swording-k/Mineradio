@@ -8,6 +8,7 @@ function bind(channel, callback) {
 }
 
 contextBridge.exposeInMainWorld('desktopOverlay', {
+  platform: process.platform,
   onLyricsState: (callback) => bind('mineradio-desktop-lyrics-state', callback),
   onWallpaperState: (callback) => bind('mineradio-wallpaper-state', callback),
   setLyricsDrag: (dragging) => ipcRenderer.invoke('mineradio-desktop-lyrics-set-dragging', !!dragging),

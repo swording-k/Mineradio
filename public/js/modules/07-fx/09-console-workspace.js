@@ -390,6 +390,7 @@ function fxConsoleAppendItem(body, tabMeta, groupMeta, item, state) {
     console.warn('[FxConsole] control missing:', item.title, item.ref);
     return;
   }
+  if (fxConsolePlatformUnavailable(node)) return;
   var existing = null;
   for (var i = 0; i < fxConsoleRegistry.length; i++) {
     if (fxConsoleRegistry[i].element === node) { existing = fxConsoleRegistry[i]; break; }
@@ -428,6 +429,12 @@ function fxConsoleAppendItem(body, tabMeta, groupMeta, item, state) {
   fxConsoleRegistry.push(entry);
 }
 
+function fxConsolePlatformUnavailable(node) {
+  var featureNode = node && node.closest && node.closest('[data-desktop-feature]');
+  return !!(featureNode && typeof desktopFeatureAvailable === 'function'
+    && !desktopFeatureAvailable(featureNode.getAttribute('data-desktop-feature')));
+}
+
 function fxConsoleFindUnclassifiedControls(roots) {
   var blockSelector = '.fx-slider,.lyric-color-row,.lyric-color-grid,.fx-seg,.preset-grid,.user-archive-grid,.fx-font-grid,.fx-toggle,.lyric-glitch-controls,.lyric-glow-effect-row,.sonic-audio-monitor,.audio-output-section,.cache-storage-panel,.memory-status-chip,.memory-status-sub,.memory-action-row,.fx-actions';
   var blocks = [];
@@ -437,6 +444,7 @@ function fxConsoleFindUnclassifiedControls(roots) {
       blocks.push(root);
     }
     root.querySelectorAll('input:not([type="hidden"]),select,textarea,button').forEach(function (control) {
+      if (fxConsolePlatformUnavailable(control)) return;
       if (control.closest('.fx-console-toolbar') || control.closest('[data-fx-console-entry]')) return;
       if (control.closest('.fx-fold-head,.fx-advanced-head')) return;
       var block = control.matches && control.matches(blockSelector) ? control : (control.closest ? control.closest(blockSelector) : null);
@@ -486,6 +494,13 @@ function organizeFxConsoleWorkspace() {
       groupMeta.items.forEach(function (item) {
         fxConsoleAppendItem(body, tabMeta, groupMeta, item, state);
       });
+      if (groupMeta.key === 'experimental' && typeof isMacDesktop === 'function' && isMacDesktop()) {
+        var note = document.createElement('div');
+        note.className = 'fx-sub';
+        note.textContent = 'macOS 版支持桌面歌词。完整桌面模式与 Wallpaper Engine 仅支持 Windows；背景图片和视频可正常导入。';
+        body.appendChild(note);
+      }
+      if (!body.children.length) body.parentNode.hidden = true;
     });
   });
   var residual = fxConsoleFindUnclassifiedControls(oldRoots);

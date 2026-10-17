@@ -69,6 +69,10 @@ function saveCloseBehaviorPreference(value) {
   try { localStorage.setItem(CLOSE_BEHAVIOR_STORE_KEY, normalizeCloseBehavior(value)); } catch (e) { }
 }
 function syncCloseBehaviorUi() {
+  if (typeof isMacDesktop === 'function' && isMacDesktop()) {
+    var segment = document.getElementById('close-behavior-seg');
+    if (segment) segment.title = '关闭窗口后继续播放；Cmd + Q 退出应用';
+  }
   document.querySelectorAll('#close-behavior-seg [data-close-behavior]').forEach(function (btn) {
     btn.classList.toggle('active', btn.getAttribute('data-close-behavior') === closeBehaviorPreference);
   });
@@ -95,6 +99,10 @@ function bindCloseBehaviorControls() {
   syncCloseBehaviorUi();
 }
 function initializeDesktopCloseBehavior() {
+  if (typeof isMacDesktop === 'function' && isMacDesktop()) {
+    syncCloseBehaviorUi();
+    return;
+  }
   bindCloseBehaviorControls();
   setCloseBehaviorPreference(closeBehaviorPreference, { toast: false });
 }

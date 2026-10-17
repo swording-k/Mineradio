@@ -626,6 +626,71 @@ function extractReleaseDownloadPage(body) {
   const pages = extractReleaseDownloadPages(body);
   return pages.length ? pages[0].url : '';
 }
+function macUpdateDownloadPages(values, arch) {
+  const candidates = [];
+  (Array.isArray(values) ? values : []).forEach(value => {
+    const item = value && typeof value === 'object' ? value : { url: value };
+    const url = safeExternalUpdateUrl(item.browser_download_url || item.url || item.downloadPageUrl || item.externalUrl || '');
+    if (!url) return;
+    let filename;
+    try { filename = decodeURIComponent(new URL(url).pathname.split('/').pop()); }
+    catch (_) { return; }
+    const extension = filename.match(/\.(dmg|zip)$/i);
+    if (!extension) return;
+    const name = String(item.name || item.label || filename);
+    const identity = (name + ' ' + filename).toLowerCase();
+    const token = expression => new RegExp('(?:^|[^a-z0-9])(?:' + expression + ')(?:$|[^a-z0-9])', 'i').test(identity);
+    if (item.platform && !/^(darwin|mac|macos|osx)$/i.test(item.platform)) return;
+    if (token('win(?:32|64|dows)?|linux|appimage')) return;
+    const format = extension[1].toLowerCase();
+    if (format === 'zip' && !/^(darwin|mac|macos|osx)$/i.test(item.platform || '') && !token('mac|macos|darwin|osx')) return;
+    const declaredArch = String(item.arch || '').toLowerCase();
+    if (declaredArch && !/^(arm64|aarch64|x64|amd64|x86_64|universal)$/.test(declaredArch)) return;
+    const universal = declaredArch === 'universal' || token('universal');
+    const arm64 = /^(arm64|aarch64)$/.test(declaredArch) || token('arm64|aarch64');
+    const x64 = /^(x64|amd64|x86_64)$/.test(declaredArch) || token('x64|amd64|x86_64');
+    // Unknown and conflicting architectures must never offer the wrong installer.
+    if (!['arm64', 'x64'].includes(arch)) return;
+    if (universal && (arm64 || x64)) return;
+    if (!universal && ((arm64 && x64) || (arch === 'arm64' ? !arm64 || x64 : !x64 || arm64))) return;
+    const cpu = universal ? '通用' : (arch === 'arm64' ? 'Apple Silicon' : 'Intel');
+    candidates.push({ label: `Mac ${cpu} ${format.toUpperCase()}`, url, rank: (universal ? 2 : 0) + (format === 'zip' ? 1 : 0) });
+  });
+  candidates.sort((a, b) => a.rank - b.rank);
+  return normalizeUpdateDownloadPages(candidates);
+}
+function applyMacUpdateInfo(info, assets) {
+  // The server runs in Electron's Node process, so this reflects the installed build.
+  if (typeof process === 'undefined' || process.platform !== 'darwin') return info;
+  const release = info.release;
+  const arch = process.arch;
+  const cpu = arch === 'arm64' ? 'Apple Silicon' : (arch === 'x64' ? 'Intel' : arch);
+  const downloadPages = macUpdateDownloadPages(assets, arch);
+  const externalUrl = downloadPages.length ? downloadPages[0].url : '';
+  // A manifest can put an installer in htmlUrl; only use a real Release page as
+  // the fallback when we cannot identify a compatible Mac artifact.
+  const htmlUrl = /^https:\/\/github\.com\/[^/]+\/[^/]+\/releases(?:\/(?:tag\/[^?#]+)?)?(?:[?#].*)?$/i.test(release.htmlUrl || '')
+    ? release.htmlUrl : (UPDATE_CONFIG.owner && UPDATE_CONFIG.repo
+    ? `https://github.com/${encodeURIComponent(UPDATE_CONFIG.owner)}/${encodeURIComponent(UPDATE_CONFIG.repo)}/releases`
+    : '');
+  const compatible = downloadPages.length > 0;
+  return {
+    ...info,
+    release: {
+      ...release,
+      platform: 'darwin',
+      arch,
+      compatible,
+      htmlUrl,
+      externalUrl,
+      downloadPageUrl: externalUrl || htmlUrl,
+      downloadPages,
+      downloadUrl: externalUrl,
+      summary: compatible ? release.summary : `此发布暂无可确认适用于 macOS（${cpu}）的安装包。`,
+      notes: compatible ? release.notes : ['请查看发布页面，等待对应架构的 macOS 安装包。', '更新通过系统浏览器下载，软件不会自动安装更新。'],
+    },
+  };
+}
 function normalizeManifestUpdateInfo(data) {
   data = data || {};
   const release = data.release || {};
@@ -660,7 +725,7 @@ function normalizeManifestUpdateInfo(data) {
   const notes = Array.isArray(release.notes) && release.notes.length
     ? release.notes.slice(0, 4).map(cleanReleaseLine).filter(Boolean)
     : (extractReleaseNotes(release.body || data.body).length ? extractReleaseNotes(release.body || data.body) : UPDATE_FALLBACK_NOTES);
-  return {
+  return applyMacUpdateInfo({
     configured: true,
     preview: false,
     updateAvailable: data.updateAvailable != null ? !!data.updateAvailable : compareVersions(latestVersion, APP_VERSION) > 0,
@@ -683,7 +748,10 @@ function normalizeManifestUpdateInfo(data) {
       notes,
     },
     source: 'manifest',
-  };
+  }, [
+    ...(Array.isArray(release.assets) ? release.assets : (Array.isArray(data.assets) ? data.assets : [])),
+    ...(explicitPages === null ? [legacyExternalUrl] : explicitPages),
+  ]);
 }
 async function readUpdateManifest(ref) {
   const value = String(ref || '').trim();
@@ -902,7 +970,7 @@ function parseLatestYmlUpdateInfo(text, reason) {
   const latestVersion = normalizeVersion(yamlScalar(text, 'version') || APP_VERSION) || APP_VERSION;
   const releaseDate = yamlScalar(text, 'releaseDate');
   const htmlUrl = `https://github.com/${UPDATE_CONFIG.owner}/${UPDATE_CONFIG.repo}/releases/tag/v${latestVersion}`;
-  return {
+  return applyMacUpdateInfo({
     configured: true,
     preview: false,
     updateAvailable: compareVersions(latestVersion, APP_VERSION) > 0,
@@ -926,11 +994,12 @@ function parseLatestYmlUpdateInfo(text, reason) {
     },
     source: 'latest-yml',
     reason: reason || '',
-  };
+  }, []);
 }
 async function fetchLatestYmlUpdateInfo(reason) {
   if (!UPDATE_CONFIG.configured || UPDATE_CONFIG.provider !== 'github') throw updateError('UPDATE_REPOSITORY_NOT_CONFIGURED');
-  const latestYmlUrl = `https://github.com/${encodeURIComponent(UPDATE_CONFIG.owner)}/${encodeURIComponent(UPDATE_CONFIG.repo)}/releases/latest/download/latest.yml`;
+  const manifestName = process.platform === 'darwin' ? 'latest-mac.yml' : 'latest.yml';
+  const latestYmlUrl = `https://github.com/${encodeURIComponent(UPDATE_CONFIG.owner)}/${encodeURIComponent(UPDATE_CONFIG.repo)}/releases/latest/download/${manifestName}`;
   const candidates = uniqueDownloadCandidates(latestYmlUrl);
   const result = await fetchTextFromCandidates(candidates, 6500);
   return parseLatestYmlUpdateInfo(result.text, reason);
@@ -960,7 +1029,7 @@ async function fetchLatestUpdateInfo() {
     const externalUrl = downloadPages.length ? downloadPages[0].url : '';
     const downloadPageUrl = externalUrl || htmlUrl;
     const notes = extractReleaseNotes(data.body).length ? extractReleaseNotes(data.body) : UPDATE_FALLBACK_NOTES;
-    return {
+    return applyMacUpdateInfo({
       configured: true,
       preview: false,
       updateAvailable: compareVersions(latestVersion, APP_VERSION) > 0,
@@ -982,7 +1051,7 @@ async function fetchLatestUpdateInfo() {
         summary: notes[0] || '发现新版本，建议更新。',
         notes,
       },
-    };
+    }, data.assets);
   } catch (err) {
     const reason = err && err.message || 'Update check failed';
     try { return await fetchLatestYmlUpdateInfo(reason); }

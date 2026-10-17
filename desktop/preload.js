@@ -1,7 +1,10 @@
 const { contextBridge, ipcRenderer, clipboard, webUtils } = require('electron');
+const { desktopCapabilities } = require('./platform-support');
 
 contextBridge.exposeInMainWorld('desktopWindow', {
   isDesktop: true,
+  platform: process.platform,
+  capabilities: desktopCapabilities(),
   minimize: () => ipcRenderer.invoke('desktop-window-minimize'),
   restore: () => ipcRenderer.invoke('desktop-window-restore'),
   toggleMaximize: () => ipcRenderer.invoke('desktop-window-toggle-maximize'),

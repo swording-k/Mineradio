@@ -240,6 +240,7 @@ function saveWallpaperEngineSelection() {
 
 function wallpaperEngineDesktopApi() {
   try {
+    if (typeof desktopFeatureAvailable === 'function' && !desktopFeatureAvailable('wallpaperEngine')) return null;
     if (typeof getDesktopWindowApi === 'function') return getDesktopWindowApi();
     return window.desktopWindow || null;
   } catch (e) {
@@ -2160,6 +2161,10 @@ async function loadWallpaperEngineLibrary(force, showNotice) {
 }
 
 async function openWallpaperEngineLibrary() {
+  if (typeof desktopFeatureAvailable === 'function' && !desktopFeatureAvailable('wallpaperEngine')) {
+    showToast('Wallpaper Engine 仅支持 Windows；可在背景媒体中导入图片或视频');
+    return;
+  }
   var modal = document.getElementById('wallpaper-engine-modal');
   if (modal) modal.classList.add('show');
   if (!wallpaperEngineLibrarySnapshot) await loadWallpaperEngineLibrary(false, false);
@@ -2406,6 +2411,11 @@ function bindWallpaperEngineLibraryEvents() {
 }
 
 function initializeWallpaperEngineLibrary() {
+  if (typeof desktopFeatureAvailable === 'function' && !desktopFeatureAvailable('wallpaperEngine')) {
+    // A settings archive from Windows must not start its native scene on macOS.
+    wallpaperEngineSelection.active = false;
+    return;
+  }
   bindWallpaperEngineLibraryEvents();
   applyWallpaperEngineVisualSettings(false);
   updateWallpaperEngineEntryUi();

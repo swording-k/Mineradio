@@ -23,6 +23,7 @@ document.addEventListener('keydown', function (e) {
   if (isTypingTarget(e.target)) return;
   if (handleConfiguredLocalHotkey(e)) return;
   if (shouldSuppressDefaultConfiguredHotkey(e)) return;
+  if (e.metaKey) return;
   if (e.code === 'Space') {
     e.preventDefault();
     e.stopPropagation();

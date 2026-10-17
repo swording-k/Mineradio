@@ -372,7 +372,8 @@ function bindFxPanel() {
   if (typeof initFxConsoleSearchAndHistory === 'function') initFxConsoleSearchAndHistory();
 }
 function toggleWallpaperModeFromUi() {
-  if (typeof desktopWallpaperRuntimeState !== 'undefined' && desktopWallpaperRuntimeState.supported === false) {
+  if ((typeof desktopFeatureAvailable === 'function' && !desktopFeatureAvailable('fullDesktopMode'))
+    || (typeof desktopWallpaperRuntimeState !== 'undefined' && desktopWallpaperRuntimeState.supported === false)) {
     showToast('当前系统不支持桌面壁纸模式');
     return Promise.resolve({ ok: false, enabled: false, error: 'WALLPAPER_PLATFORM_UNSUPPORTED' });
   }

@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, shell, screen, session, globalShortcut, dialog, Tray, Menu, protocol, desktopCapturer, powerMonitor } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen, session, globalShortcut, dialog, Tray, Menu, protocol, desktopCapturer, powerMonitor, systemPreferences } = require('electron');
+const { mainWindowPlatformOptions, requestSystemCameraPermission, createMacMenuTemplate } = require('./platform-support');
 const net = require('net');
 const http = require('http');
 const path = require('path');
@@ -481,7 +482,9 @@ const CHROMIUM_SAFE_PERFORMANCE_SWITCHES = [
   ['enable-oop-rasterization'],
   ['enable-zero-copy'],
   ['enable-accelerated-2d-canvas'],
-  ['use-angle', 'd3d11'],
+  // D3D11 exists only on Windows. Other platforms must select their native
+  // ANGLE backend (including Metal on macOS) through Electron's defaults.
+  ...(process.platform === 'win32' ? [['use-angle', 'd3d11']] : []),
 ];
 const CHROMIUM_OPT_IN_PERFORMANCE_SWITCHES = [
   ['ignore-gpu-blocklist', null, 'MINERADIO_IGNORE_GPU_BLOCKLIST'],
@@ -1431,6 +1434,9 @@ function syncWallpaperEngineWithFullDesktopMode(win, reason = 'desktop-state') {
 }
 
 async function enableFullDesktopMode(win, options = {}) {
+  if (process.platform !== 'win32') {
+    return { ok: false, enabled: false, error: 'FULL_DESKTOP_PLATFORM_UNSUPPORTED', status: fullDesktopModeRuntime.getStatus('unsupported') };
+  }
   const enableOperation = ++fullDesktopEnableOperation;
   fullDesktopEnablePending = true;
   registerFullDesktopEscapeShortcut();
@@ -1902,6 +1908,8 @@ function getWindowState(win) {
 }
 
 function setMainWindowFullscreenResizeGuard(win, fullscreen) {
+  // macOS owns the native fullscreen transition and traffic-light controls.
+  if (process.platform === 'darwin') return;
   if (!win || win.isDestroyed()) return;
   const shouldResize = !fullscreen;
   try {
@@ -1934,7 +1942,7 @@ async function getGpuDiagnostics() {
       ignoreGpuBlocklist: process.env.MINERADIO_IGNORE_GPU_BLOCKLIST === '1',
       forceHighPerformanceGpu: process.env.MINERADIO_FORCE_HIGH_PERFORMANCE_GPU === '1',
       keepBackgroundRendering: process.env.MINERADIO_KEEP_BACKGROUND_RENDERING === '1',
-      angle: 'd3d11',
+      angle: process.platform === 'win32' ? 'd3d11' : 'default',
     },
   };
 }
@@ -2140,6 +2148,50 @@ function createOrUpdateTray() {
     },
   ]);
   tray.setContextMenu(menu);
+}
+
+function updateMacDesktopLyricsMenu() {
+  if (process.platform !== 'darwin') return;
+  const menu = Menu.getApplicationMenu();
+  if (!menu) return;
+  const enabledItem = menu.getMenuItemById('desktop-lyrics-enabled');
+  const lockedItem = menu.getMenuItemById('desktop-lyrics-locked');
+  if (enabledItem) enabledItem.checked = desktopLyricsState.enabled === true;
+  if (lockedItem) {
+    lockedItem.checked = desktopLyricsState.clickThrough !== false;
+    lockedItem.enabled = desktopLyricsState.enabled === true;
+  }
+}
+
+function installMacApplicationMenu() {
+  if (process.platform !== 'darwin') return;
+  const showMainWindow = () => {
+    if (appQuitting) return;
+    if (startupCompleted && focusMainWindow()) return;
+    createWindow().then(() => focusMainWindow()).catch((error) => reportWindowCreationFailure('Menu', error));
+  };
+  Menu.setApplicationMenu(Menu.buildFromTemplate(createMacMenuTemplate({
+    appName: APP_NAME,
+    showMainWindow,
+    toggleFullscreen: () => toggleFullscreen(mainWindow),
+    setLyricsEnabled: (enabled) => {
+      if (enabled) {
+        createDesktopLyricsWindow();
+        broadcastDesktopLyricsEnabledState(true);
+      } else {
+        closeDesktopLyricsWindow();
+      }
+    },
+    setLyricsLocked: (locked) => {
+      desktopLyricsState = { ...desktopLyricsState, clickThrough: !!locked };
+      desktopLyricsPointerCapture = !locked;
+      applyDesktopLyricsMouseBehavior();
+      broadcastDesktopLyricsLockState();
+    },
+  })));
+  if (app.dock) app.dock.setMenu(Menu.buildFromTemplate([
+    { label: `显示 ${APP_NAME}`, click: showMainWindow },
+  ]));
 }
 
 function ensureFullDesktopModeRecoveryTray() {
@@ -3486,6 +3538,13 @@ function exitFullscreenToWindow(win) {
   if (!win || win.isDestroyed()) return;
   windowFullscreenActive = false;
 
+  if (process.platform === 'darwin') {
+    // AppKit restores the user's previous frame after its native transition.
+    win.setFullScreen(false);
+    sendWindowState(win);
+    return;
+  }
+
   if (!win.isFullScreen()) {
     applyWindowedBounds(win);
     return;
@@ -3502,6 +3561,13 @@ function toggleFullscreen(win) {
   if (!win || win.isDestroyed()) return;
   if (win.isFullScreen() || windowFullscreenActive) {
     exitFullscreenToWindow(win);
+    return;
+  }
+  if (process.platform === 'darwin') {
+    // Resizing to display.bounds first would replace AppKit's saved frame.
+    windowFullscreenActive = true;
+    win.setFullScreen(true);
+    sendWindowState(win);
     return;
   }
   const display = getWindowDisplay(win);
@@ -3694,6 +3760,7 @@ function stopDesktopLyricsMousePoller() {
 }
 
 function broadcastDesktopLyricsLockState() {
+  updateMacDesktopLyricsMenu();
   const locked = desktopLyricsState.clickThrough !== false;
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('mineradio-desktop-lyrics-lock-state', { locked });
@@ -3702,6 +3769,7 @@ function broadcastDesktopLyricsLockState() {
 }
 
 function broadcastDesktopLyricsEnabledState(enabled) {
+  updateMacDesktopLyricsMenu();
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('mineradio-desktop-lyrics-enabled-state', { enabled: !!enabled });
   }
@@ -3717,6 +3785,7 @@ function positionDesktopLyricsWindow(payload = desktopLyricsState, options = {})
 }
 
 function sendDesktopLyricsState() {
+  updateMacDesktopLyricsMenu();
   if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return;
   desktopLyricsWindow.webContents.send('mineradio-desktop-lyrics-state', desktopLyricsState);
 }
@@ -3781,6 +3850,9 @@ function createDesktopLyricsWindow(payload = {}) {
   desktopLyricsWindow.on('closed', () => {
     desktopLyricsWindow = null;
     desktopLyricsMouseIgnored = null;
+    desktopLyricsState = { ...desktopLyricsState, enabled: false };
+    stopDesktopLyricsMousePoller();
+    broadcastDesktopLyricsEnabledState(false);
   });
   desktopLyricsWindow.on('moved', rememberDesktopLyricsBounds);
   desktopLyricsWindow.loadURL(overlayUrl('desktop-lyrics.html')).catch((e) => console.warn('Desktop lyrics load failed:', e.message));
@@ -4987,6 +5059,9 @@ ipcMain.handle('mineradio-wallpaper-set-enabled', async (event, enabled, payload
 });
 
 ipcMain.handle('mineradio-gesture-camera-request-permission', async (event) => {
+  if (!isTrustedMainWindowIpc(event)) return { ok: false, error: 'GESTURE_CAMERA_UNTRUSTED_SENDER' };
+  const systemPermission = await requestSystemCameraPermission(systemPreferences);
+  if (!systemPermission.ok) return systemPermission;
   const grant = createGestureCameraPermissionGrant(event);
   if (!grant) return { ok: false, error: 'GESTURE_CAMERA_UNTRUSTED_SENDER' };
   return { ok: true, expiresAt: grant.expiresAt };
@@ -5308,6 +5383,7 @@ function clearMainWindowFullscreenVisibilityGuard() {
 }
 
 function shouldRestoreUnexpectedMainWindowVisibility(win) {
+  if (process.platform === 'darwin') return false;
   if (!win || win.isDestroyed() || appQuitting || !startupCompleted) return false;
   if (win.__mineradioIntentionalHide === true || win.__mineradioExpectedVisible === false) return false;
   if (fullDesktopModeHostVisibilityTransitionDepth > 0 || fullDesktopModeRuntime.getStatus('main-window-visibility-guard').enabled === true) return false;
@@ -5316,6 +5392,7 @@ function shouldRestoreUnexpectedMainWindowVisibility(win) {
 }
 
 function shouldRestoreUnexpectedMainWindowMinimize(win) {
+  if (process.platform === 'darwin') return false;
   if (!win || win.isDestroyed() || appQuitting || !startupCompleted) return false;
   if (win.__mineradioIntentionalHide === true || win.__mineradioExpectedVisible === false) return false;
   if (win.__mineradioIntentionalMinimize === true) return false;
@@ -5324,6 +5401,7 @@ function shouldRestoreUnexpectedMainWindowMinimize(win) {
 }
 
 function shouldRestoreUnexpectedFullscreenVisibility(win) {
+  if (process.platform === 'darwin') return false;
   if (!win || win.isDestroyed() || appQuitting || win.__mineradioIntentionalHide === true) return false;
   if (fullDesktopModeHostVisibilityTransitionDepth > 0 || fullDesktopModeRuntime.getStatus('fullscreen-visibility-guard').enabled === true) return false;
   if (!win.isFullScreen() || win.isMinimized() || win.isVisible()) return false;
@@ -5610,7 +5688,8 @@ async function createWindowOnce() {
     hasShadow: true,
     autoHideMenuBar: true,
     title: APP_NAME,
-    icon: APP_ICON_ICO,
+    ...(process.platform === 'win32' ? { icon: APP_ICON_ICO } : {}),
+    ...mainWindowPlatformOptions(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -5700,6 +5779,7 @@ async function createWindowOnce() {
   win.on('maximize', () => sendWindowState(win));
   win.on('unmaximize', () => sendWindowState(win));
   win.on('minimize', () => {
+    if (process.platform === 'darwin') armMainWindowMinimizeIntent(win, 'macos-native-minimize');
     const minimizeIntent = consumeMainWindowMinimizeIntent(win);
     writeStartupState('window-minimized', {
       windowMinimizedAt: Date.now(),
@@ -5742,6 +5822,7 @@ async function createWindowOnce() {
       setTimeout(() => restoreUnexpectedMainWindowVisibility(win, 'hide-event'), MAIN_WINDOW_HIDE_RECOVERY_DELAY_MS);
     }
     scheduleAppMemoryTrim('hide', 2200);
+    if (process.platform === 'darwin') win.__mineradioIntentionalHide = true;
   });
   win.on('focus', () => sendWindowState(win));
   win.on('blur', () => sendWindowState(win));
@@ -5756,6 +5837,20 @@ async function createWindowOnce() {
     scheduleWallpaperEngineHostBoundsRestart(win, 'resize');
   });
   win.on('close', (event) => {
+    // Keep the renderer and its audio alive when closing a Mac music window.
+    // Cmd+Q sets appQuitting first and follows the existing bounded cleanup.
+    if (process.platform === 'darwin' && !appQuitting) {
+      event.preventDefault();
+      win.__mineradioIntentionalHide = true;
+      markMainWindowExpectedVisible(win, false, 'macos-close');
+      flushMainWindowFxAutosave('macos-close').finally(() => {
+        if (!win.isDestroyed() && !appQuitting && win.__mineradioIntentionalHide) {
+          win.hide();
+          sendWindowState(win);
+        }
+      });
+      return;
+    }
     const desktopMode = fullDesktopModeRuntime.getStatus('main-window-close');
     if (desktopMode.enabled === true) {
       event.preventDefault();
@@ -5804,7 +5899,11 @@ async function createWindowOnce() {
       mainWindowCloseFlushArmed = true;
       flushMainWindowFxAutosave('main-close').finally(() => {
         if (win.isDestroyed()) return;
-        win.close();
+        // preventDefault() cancels app.quit() as well as this window close.
+        // Retry the application quit after saving, or macOS keeps a headless
+        // process alive after the last window has closed.
+        if (appQuitting) app.quit();
+        else win.close();
       });
     }
   });
@@ -5851,6 +5950,12 @@ async function createWindowOnce() {
     windowFullscreenActive = false;
     setMainWindowFullscreenResizeGuard(win, false);
     clearMainWindowFullscreenVisibilityGuard();
+    if (process.platform === 'darwin') {
+      windowFullscreenDisplayId = null;
+      ensureMainWindowInsideDisplay(win);
+      sendWindowState(win);
+      return;
+    }
     setTimeout(() => {
       const targetDisplay = getFullscreenTargetDisplay(win);
       applyWindowedBounds(win, targetDisplay);
@@ -5867,6 +5972,11 @@ async function createWindowOnce() {
   win.on('leave-html-full-screen', () => {
     htmlFullscreenActive = false;
     setMainWindowFullscreenResizeGuard(win, false);
+    if (process.platform === 'darwin') {
+      ensureMainWindowInsideDisplay(win);
+      sendWindowState(win);
+      return;
+    }
     setTimeout(() => {
       applyWindowedBounds(win);
       scheduleWallpaperEngineHostBoundsRestart(win, 'leave-html-full-screen');
@@ -5931,6 +6041,7 @@ if (!gotSingleInstanceLock) {
   });
 
   app.whenReady().then(async () => {
+    installMacApplicationMenu();
     try {
       await localMusicLibrary.installProtocol(protocol);
     } catch (error) {
@@ -5962,6 +6073,7 @@ if (!gotSingleInstanceLock) {
   }).catch((e) => reportWindowCreationFailure('Main', e));
 
   app.on('activate', () => {
+    if (appQuitting) return;
     if (startupCompleted && focusMainWindow()) return;
     createWindow()
       .then(() => focusMainWindow())

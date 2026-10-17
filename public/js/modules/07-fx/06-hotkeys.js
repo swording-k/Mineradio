@@ -1,8 +1,22 @@
+function hotkeysUseMacPlatform() {
+  return !!(window.desktopWindow && window.desktopWindow.platform === 'darwin');
+}
+function hotkeyActionAvailable(actionKey) {
+  return actionKey !== 'toggleDesktopInteraction'
+    || typeof desktopFeatureAvailable !== 'function'
+    || desktopFeatureAvailable('fullDesktopMode');
+}
 function getHotkeyDefaults() {
   var defaults = { local: {}, global: {} };
   HOTKEY_ACTIONS.forEach(function (action) {
     defaults.local[action.key] = action.local || '';
-    defaults.global[action.key] = action.global || '';
+    var globalBinding = action.global || '';
+    if (hotkeysUseMacPlatform() && globalBinding.indexOf('Ctrl+') === 0) {
+      var parts = globalBinding.slice(5).split('+');
+      parts.splice(parts.length - 1, 0, 'Meta');
+      globalBinding = parts.join('+');
+    }
+    defaults.global[action.key] = hotkeyActionAvailable(action.key) ? globalBinding : '';
   });
   return defaults;
 }
@@ -44,9 +58,9 @@ function normalizeHotkeyEvent(e) {
 }
 function hotkeyDisplayPart(part) {
   if (part === 'Ctrl') return 'Ctrl';
-  if (part === 'Alt') return 'Alt';
+  if (part === 'Alt') return hotkeysUseMacPlatform() ? 'Option' : 'Alt';
   if (part === 'Shift') return 'Shift';
-  if (part === 'Meta') return 'Win';
+  if (part === 'Meta') return hotkeysUseMacPlatform() ? 'Cmd' : 'Win';
   if (part === 'Space') return 'Space';
   if (part === 'ArrowLeft') return 'Left';
   if (part === 'ArrowRight') return 'Right';
@@ -69,7 +83,7 @@ function hotkeyToAccelerator(hotkey) {
     if (part === 'Ctrl') return 'Control';
     if (part === 'Alt') return 'Alt';
     if (part === 'Shift') return 'Shift';
-    if (part === 'Meta') return 'Super';
+    if (part === 'Meta') return hotkeysUseMacPlatform() ? 'Command' : 'Super';
     if (part === 'Space') return 'Space';
     if (part === 'ArrowLeft') return 'Left';
     if (part === 'ArrowRight') return 'Right';
@@ -84,6 +98,7 @@ function hotkeyDuplicateMap(scope) {
   var map = {};
   var source = (hotkeySettings && hotkeySettings[scope]) || {};
   Object.keys(source).forEach(function (action) {
+    if (!hotkeyActionAvailable(action)) return;
     var key = String(source[action] || '').trim();
     if (!key) return;
     map[key] = (map[key] || 0) + 1;
@@ -91,6 +106,7 @@ function hotkeyDuplicateMap(scope) {
   return map;
 }
 function executeHotkeyAction(actionKey, source) {
+  if (!hotkeyActionAvailable(actionKey)) return;
   if (actionKey === 'togglePlay') return togglePlay();
   if (actionKey === 'prevTrack') return prevTrack(true);
   if (actionKey === 'nextTrack') return nextTrack(true);
@@ -132,6 +148,7 @@ function handleConfiguredLocalHotkey(e) {
   var duplicate = hotkeyDuplicateMap('local');
   for (var i = 0; i < HOTKEY_ACTIONS.length; i++) {
     var action = HOTKEY_ACTIONS[i];
+    if (!hotkeyActionAvailable(action.key)) continue;
     if (hotkeySettings.local[action.key] !== combo) continue;
     e.preventDefault();
     e.stopPropagation();
@@ -217,6 +234,7 @@ function renderHotkeyScope(scope) {
   var html = '';
   var groups = {};
   HOTKEY_ACTIONS.forEach(function (action) {
+    if (!hotkeyActionAvailable(action.key)) return;
     (groups[action.category] = groups[action.category] || []).push(action);
   });
   Object.keys(groups).forEach(function (category) {
@@ -282,7 +300,8 @@ function setHotkeyBinding(action, scope, value) {
 function resetHotkeyBinding(action, scope) {
   var meta = hotkeyActionMeta(action);
   if (!meta) return;
-  setHotkeyBinding(action, scope, scope === 'global' ? meta.global : meta.local);
+  var defaults = getHotkeyDefaults();
+  setHotkeyBinding(action, scope, defaults[scope] && defaults[scope][action]);
 }
 function registerGlobalHotkeys() {
   var api = getDesktopWindowApi && getDesktopWindowApi();
@@ -294,6 +313,7 @@ function registerGlobalHotkeys() {
   var duplicate = hotkeyDuplicateMap('global');
   var bindings = [];
   HOTKEY_ACTIONS.forEach(function (action) {
+    if (!hotkeyActionAvailable(action.key)) return;
     var key = hotkeySettings.global && hotkeySettings.global[action.key];
     if (!key || duplicate[key] > 1) return;
     var accelerator = hotkeyToAccelerator(key);

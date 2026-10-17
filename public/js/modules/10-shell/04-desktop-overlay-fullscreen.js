@@ -1394,6 +1394,7 @@ function applyDesktopLyricsState(force) {
   pushDesktopLyricsState(!!force);
 }
 function pushWallpaperState(force) {
+  if (typeof desktopFeatureAvailable === 'function' && !desktopFeatureAvailable('fullDesktopMode')) return;
   var api = getDesktopWindowApi();
   if (!api || typeof api.updateWallpaperMode !== 'function') return;
   if (!force) return;
@@ -1404,6 +1405,10 @@ function pushWallpaperState(force) {
 }
 function applyWallpaperModeState(force) {
   var api = getDesktopWindowApi();
+  if (typeof desktopFeatureAvailable === 'function' && !desktopFeatureAvailable('fullDesktopMode')) {
+    fx.wallpaperMode = false;
+    return Promise.resolve({ ok: false, enabled: false, error: 'WALLPAPER_PLATFORM_UNSUPPORTED' });
+  }
   if (!api) {
     fx.wallpaperMode = false;
     updateFxInputs();
@@ -1534,6 +1539,7 @@ function toggleFullscreen() {
 
   document.documentElement.classList.add('desktop-shell-root');
   document.body.classList.add('desktop-shell');
+  if (typeof applyDesktopPlatformUi === 'function') applyDesktopPlatformUi();
   document.body.classList.remove('desktop-fullscreen');
   desktopFullscreenActive = false;
   syncCursorAutoHideMode();
@@ -1615,9 +1621,13 @@ function toggleFullscreen() {
     });
   }
 
-  initDesktopModeControls(api);
-  initDesktopIconShieldReporter(api);
-  initDesktopWallpaperRuntimeBridge(api);
+  if (typeof desktopFeatureAvailable !== 'function' || desktopFeatureAvailable('fullDesktopMode')) {
+    initDesktopModeControls(api);
+    initDesktopIconShieldReporter(api);
+    initDesktopWallpaperRuntimeBridge(api);
+  } else {
+    desktopWallpaperRuntimeState.supported = false;
+  }
   api.onStateChange(applyState);
   if (typeof api.getState === 'function') {
     api.getState().then(applyState).catch(function () { applyState({}); });

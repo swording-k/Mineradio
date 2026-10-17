@@ -22,7 +22,8 @@ function writeProject(root, name, manifest, files) {
 }
 
 async function main() {
-  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-we-'));
+  // macOS exposes /var through a symlink; match the library's canonical paths.
+  const temp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-we-')));
   const libraryRoot = path.join(temp, 'library');
   const userData = path.join(temp, 'user-data');
   fs.mkdirSync(libraryRoot, { recursive: true });

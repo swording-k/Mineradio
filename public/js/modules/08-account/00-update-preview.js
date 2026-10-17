@@ -100,10 +100,20 @@ function applyLatestUpdateInfo(data) {
   updatePreviewState.preview = !!data.preview;
   updatePreviewState.updateAvailable = !!data.updateAvailable;
   updatePreviewState.releaseUrl = release.htmlUrl || data.htmlUrl || '';
+  var macDesktop = typeof isMacDesktop === 'function' && isMacDesktop();
+  updatePreviewState.platform = release.platform || (macDesktop ? 'darwin' : '');
+  updatePreviewState.arch = release.arch || '';
+  updatePreviewState.compatible = release.compatible !== false;
   var legacyExternalUrl = release.externalUrl || data.externalUrl || '';
   var explicitPages = Array.isArray(release.downloadPages)
     ? release.downloadPages
     : (Array.isArray(data.downloadPages) ? data.downloadPages : null);
+  // Older update servers advertise Windows cloud links. Only accept macOS
+  // downloads after the server explicitly identifies a compatible Mac release.
+  if (macDesktop && (release.platform !== 'darwin' || release.compatible !== true)) {
+    explicitPages = [];
+    updatePreviewState.compatible = false;
+  }
   updatePreviewState.downloadPages = normalizeUpdateDownloadPages(explicitPages || []);
   if (
     explicitPages === null
@@ -127,6 +137,9 @@ function applyLatestUpdateInfo(data) {
   updatePreviewState.errorReason = '';
   updatePreviewState.hero = release.summary
     || (updatePreviewState.updateAvailable ? '发现新版本，建议更新。' : '当前版本已是最新。');
+  if (macDesktop && !updatePreviewState.compatible && updatePreviewState.updateAvailable) {
+    updatePreviewState.hero = '发现新版本，暂无适用于此 Mac 的安装包。可查看发布页面了解进展。';
+  }
   updatePreviewState.notes = Array.isArray(release.notes) ? release.notes.slice(0, 4) : [];
   renderUpdatePreviewPanel();
   setUpdatePreviewVisible(updatePreviewState.updateAvailable || updatePreviewState.preview);
@@ -244,6 +257,11 @@ function syncUpdatePreviewStateClass() {
   if (foot) {
     if (isOpening) foot.textContent = '正在调用系统浏览器。';
     else if (isError) foot.textContent = '无法打开下载页：' + (updatePreviewState.errorReason || '请稍后重试');
+    else if (updatePreviewState.platform === 'darwin' && updatePreviewState.updateAvailable) {
+      foot.textContent = updatePreviewState.compatible && downloadPages.length
+        ? '将在浏览器下载适用于此 Mac 的安装包；下载后打开并将 Mineradio 拖入「应用程序」。'
+        : '此版本暂无适用于此 Mac 的安装包；按钮会打开 GitHub 发布页面。';
+    }
     else if (!updatePreviewState.updateAvailable) foot.textContent = '当前版本已是最新。';
     else if (downloadPages.length || updatePreviewState.externalUrl) foot.textContent = '请使用本次公告中的最新网盘链接，旧收藏链接可能不是最新版。软件不会在本地下载或应用补丁。';
     else foot.textContent = '将在浏览器打开 GitHub 更新页面；软件不会在本地下载或应用补丁。';
@@ -347,7 +365,9 @@ async function startUpdatePreviewDownload(preferredIndex) {
     updatePreviewState.status = 'opened';
     syncUpdatePreviewStateClass();
     pulseUpdateReady();
-    showToast(updatePreviewState.externalUrl ? '已在浏览器打开网盘下载页' : '已在浏览器打开更新页面');
+    showToast(updatePreviewState.platform === 'darwin'
+      ? (currentUpdateDownloadPages().length ? '已在浏览器打开 Mac 安装包下载' : '已在浏览器打开发布页面')
+      : (updatePreviewState.externalUrl ? '已在浏览器打开网盘下载页' : '已在浏览器打开更新页面'));
     setTimeout(function () {
       if (updatePreviewState.status === 'opened') {
         updatePreviewState.status = 'idle';

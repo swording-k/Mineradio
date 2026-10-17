@@ -2,13 +2,21 @@
   "name": "mineradio",
   "productName": "Mineradio",
   "version": "2.2.0",
-  "description": "Windows 沉浸式音乐播放器，融合桌面模式、歌词舞台、粒子视觉和 3D 歌单架。",
+  "description": "Windows / macOS 沉浸式音乐播放器，融合歌词舞台、粒子视觉和 3D 歌单架。",
   "author": "Mineradio",
   "license": "GPL-3.0-only",
   "main": "desktop/main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
+    "test": "node --test tests/*.test.js",
+    "check": "node scripts/quick-check.js",
+    "check:mac": "node scripts/check-macos-runtime.js",
+    "build:mac": "electron-builder --mac dmg zip --arm64 --x64 --publish never -c.mac.identity=- -c.mac.hardenedRuntime=false -c.mac.notarize=false",
+    "build:mac:arm64": "electron-builder --mac dmg zip --arm64 --publish never -c.mac.identity=- -c.mac.hardenedRuntime=false -c.mac.notarize=false",
+    "build:mac:x64": "electron-builder --mac dmg zip --x64 --publish never -c.mac.identity=- -c.mac.hardenedRuntime=false -c.mac.notarize=false",
+    "build:mac:dir": "electron-builder --mac dir --publish never -c.mac.identity=- -c.mac.hardenedRuntime=false -c.mac.notarize=false",
+    "build:mac:release": "electron-builder --mac dmg zip --arm64 --x64 --publish never -c.forceCodeSigning=true -c.mac.notarize=true",
     "build:win": "electron-builder --win nsis",
     "build:win:dir": "electron-builder --win dir",
     "build:win:internal-beta": "electron-builder --config electron-builder.internal-beta.json --win nsis --publish never"
@@ -46,6 +54,33 @@
       "public/index.html"
     ],
     "asar": false,
+    "mac": {
+      "category": "public.app-category.music",
+      "icon": "build/icon.icns",
+      "minimumSystemVersion": "12.0",
+      "artifactName": "Mineradio-${version}-mac-${arch}.${ext}",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSCameraUsageDescription": "启用手势控制时，Mineradio 使用摄像头在本机识别手势以控制播放。"
+      }
+    },
+    "dmg": {
+      "title": "Mineradio ${version}",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
     "win": {
       "executableName": "Mineradio",
       "icon": "build/icon.ico",
@@ -77,7 +112,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "XxHuberrr",
+        "owner": "swording-k",
         "repo": "Mineradio"
       }
     ]
@@ -85,7 +120,7 @@
   "mineradio": {
     "update": {
       "provider": "github",
-      "owner": "XxHuberrr",
+      "owner": "swording-k",
       "repo": "Mineradio",
       "preview": false,
       "preferMirrors": true,

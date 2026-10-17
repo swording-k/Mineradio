@@ -557,6 +557,40 @@ body.desktop-shell #desktop-titlebar::after {
   content: none
 }
 
+/* macOS owns the window frame and traffic lights. Keep application actions on
+   the right, with a clear inset for the native controls on the left. */
+html.desktop-platform-mac body.desktop-shell #desktop-titlebar {
+  padding-left: 90px
+}
+
+html.desktop-platform-mac body.desktop-shell #desktop-window-shell {
+  border-radius: 0;
+  clip-path: none;
+  box-shadow: none
+}
+
+html.desktop-platform-mac body.desktop-shell .desktop-window-btn,
+html.desktop-platform-mac #desktop-resize-handles,
+.desktop-feature-unavailable {
+  display: none !important
+}
+
+.desktop-mac-note {
+  display: none
+}
+
+html.desktop-platform-mac .desktop-mac-note {
+  display: block
+}
+
+html.desktop-platform-mac #close-behavior-seg [data-close-behavior] {
+  display: none
+}
+
+html.desktop-platform-mac #close-behavior-seg {
+  display: block
+}
+
 .desktop-drag-region {
   height: 100%;
   flex: 1;

@@ -70,7 +70,8 @@ function updateDevelopmentFxControls() {
       el.title = runtimeUnavailable ? '当前系统不支持桌面壁纸模式' : '开发中，暂不可用';
     } else {
       el.removeAttribute('aria-disabled');
-      el.title = item[2];
+      el.title = item[0] === 'desktopLyricsClickThrough' && typeof desktopLyricsLockHint === 'function'
+        ? desktopLyricsLockHint() : item[2];
     }
   });
   [

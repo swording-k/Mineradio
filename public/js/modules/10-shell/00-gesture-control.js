@@ -422,7 +422,9 @@ async function startGestureControlInternal(epoch) {
     if (desktopApi && typeof desktopApi.requestGestureCameraPermission === 'function') {
       var permissionGrant = await desktopApi.requestGestureCameraPermission();
       if (!permissionGrant || permissionGrant.ok !== true) {
-        throw new Error(permissionGrant && permissionGrant.error || 'GESTURE_CAMERA_PERMISSION_GRANT_FAILED');
+        var permissionError = new Error(permissionGrant && permissionGrant.error || 'GESTURE_CAMERA_PERMISSION_GRANT_FAILED');
+        permissionError.userMessage = permissionGrant && permissionGrant.message || '';
+        throw permissionError;
       }
     }
     await loadScriptOnce('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js');
@@ -485,7 +487,10 @@ async function startGestureControlInternal(epoch) {
     console.warn('Gesture failed:', e);
     cleanupGestureControlRuntime('error');
     var denied = /NotAllowed|Permission|permission|GESTURE_CAMERA/i.test(String(e && (e.name + ' ' + e.message) || e || ''));
-    showToast(denied ? '摄像头权限未开启，请在 Windows 隐私设置中允许桌面应用访问摄像头' : '手势启动失败，请检查摄像头是否被其他程序占用');
+    var permissionHint = typeof isMacDesktop === 'function' && isMacDesktop()
+      ? '摄像头权限未开启，请在系统设置 → 隐私与安全性 → 摄像头中允许 Mineradio'
+      : '摄像头权限未开启，请在 Windows 隐私设置中允许桌面应用访问摄像头';
+    showToast(denied ? (e.userMessage || permissionHint) : '手势启动失败，请检查摄像头是否被其他程序占用');
     persistGestureCameraDisabled(e && (e.message || e.name) || e || 'startup-failed');
     return false;
   }

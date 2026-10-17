@@ -422,7 +422,7 @@
           <button class="fx-mini-btn ghost" type="button" onclick="clearCustomBackgroundImage()">清除</button>
         </div>
       </div>
-      <div class="lyric-color-row image-pick-row wallpaper-engine-row">
+      <div class="lyric-color-row image-pick-row wallpaper-engine-row" data-desktop-feature="wallpaperEngine">
         <div class="wallpaper-engine-mark" aria-hidden="true">WE</div>
         <div class="fx-color-row-label">Wallpaper Engine<small id="wallpaper-engine-value">未启用 · 原背景保留</small></div>
         <div class="wallpaper-engine-actions">
@@ -431,7 +431,7 @@
             onclick="deactivateWallpaperEngineBackground()" disabled>恢复原背景</button>
         </div>
       </div>
-      <div class="wallpaper-engine-visual-controls">
+      <div class="wallpaper-engine-visual-controls" data-desktop-feature="wallpaperEngine">
         <div class="fx-slider"><label>WE 壁纸透明度</label><input id="wallpaper-engine-opacity" type="range" min="0.15" max="1" step="0.01" oninput="setWallpaperEngineVisualSetting('opacity', this.value)"><output></output></div>
         <div class="fx-slider"><label>WE 水平位置</label><input id="wallpaper-engine-position-x" type="range" min="-50" max="50" step="1" oninput="setWallpaperEngineVisualSetting('positionX', this.value)"><output></output></div>
         <div class="fx-slider"><label>WE 垂直位置</label><input id="wallpaper-engine-position-y" type="range" min="-50" max="50" step="1" oninput="setWallpaperEngineVisualSetting('positionY', this.value)"><output></output></div>
@@ -804,7 +804,7 @@
               title="桌面歌词绑定鼓点电影震动，基础漂浮始终保留"><span>桌面歌词电影震动</span><span class="dot"></span></div>
             <div class="fx-toggle" id="t-desktopLyricsHighlight" onclick="toggleFx('desktopLyricsHighlight')"
               title="桌面歌词按播放进度高亮"><span>桌面歌词高亮跟随</span><span class="dot"></span></div>
-            <div class="fx-toggle" id="t-wallpaperMode" onclick="toggleFx('wallpaperMode')"
+            <div class="fx-toggle" id="t-wallpaperMode" data-desktop-feature="fullDesktopMode" onclick="toggleFx('wallpaperMode')"
               title="把当前完整 Mineradio 放到 Windows 桌面；右上控制器可显示、隐藏桌面图标，Esc 退出">
               <span>完整桌面模式<em class="fx-dev-badge">试验</em></span><span class="dot"></span></div>
           </div>
@@ -823,7 +823,7 @@
             <button data-desktop-lyrics-fps="120">120</button>
             <button data-desktop-lyrics-fps="0">无上限</button>
           </div>
-          <div class="desktop-mode-note">开启后可在右上控制器显示或隐藏 Windows 桌面图标；按 Esc 直接退出。重启默认关闭。</div>
+          <div class="desktop-mode-note" data-desktop-feature="fullDesktopMode">开启后可在右上控制器显示或隐藏 Windows 桌面图标；按 Esc 直接退出。重启默认关闭。</div>
           <div class="fx-section-label" hidden>壁纸帧数</div>
           <div class="fx-seg" id="wallpaper-fps-seg" hidden>
             <button data-wallpaper-fps="24">24</button>
@@ -980,6 +980,7 @@
           <div class="fx-seg" id="close-behavior-seg" title="点击右上角关闭按钮时的行为">
             <button data-close-behavior="exit">直接退出</button>
             <button data-close-behavior="tray">后台托盘</button>
+            <span class="desktop-mac-note">关闭窗口后继续播放；点击 Dock 图标重新打开，按 Cmd + Q 退出。</span>
           </div>
           <div class="fx-section-label">启动播放</div>
           <div class="fx-toggle-grid">
@@ -1039,25 +1040,25 @@
               title="最小化、托盘后台或深度后台时压缩 Mineradio / Electron 工作集"><span>自动压缩播放器</span><span class="dot"></span></div>
             <div class="fx-toggle" id="t-memoryAutoTrimOnBackground" onclick="toggleFx('memoryAutoTrimOnBackground')"
               title="只在最小化、隐藏或不可见后台触发自动压缩，前台播放不打断"><span>后台触发压缩</span><span class="dot"></span></div>
-            <div class="fx-toggle" id="t-memoryAutoSystemTrim" onclick="toggleFx('memoryAutoSystemTrim')"
+            <div class="fx-toggle" id="t-memoryAutoSystemTrim" data-desktop-feature="systemMemoryPurge" onclick="toggleFx('memoryAutoSystemTrim')"
               title="按阈值和间隔启用系统级 Mem Reduct；默认不自动弹管理员权限"><span>系统级定时释放</span><span class="dot"></span></div>
-            <div class="fx-toggle" id="t-memorySystemAutoElevate" onclick="toggleFx('memorySystemAutoElevate')"
+            <div class="fx-toggle" id="t-memorySystemAutoElevate" data-desktop-feature="systemMemoryPurge" onclick="toggleFx('memorySystemAutoElevate')"
               title="完整释放工作集/修改页/待机页可能需要 UAC；关闭时只尝试当前权限可完成的部分"><span>需要时请求管理员</span><span class="dot"></span></div>
           </div>
-          <div class="fx-seg memory-mask-seg" id="memory-mask-seg" title="Mem Reduct 系统释放范围">
+          <div class="fx-seg memory-mask-seg" id="memory-mask-seg" data-desktop-feature="systemMemoryPurge" title="Mem Reduct 系统释放范围">
             <button data-memory-mask="workingSet" class="active">工作集</button>
             <button data-memory-mask="modifiedList" class="active">修改页</button>
             <button data-memory-mask="standbyList" class="active">待机页</button>
             <button data-memory-mask="standbyLow" class="active">低优先待机</button>
           </div>
-          <div class="fx-slider"><label>定时释放(分)</label><input id="fx-memory-interval" type="range" min="5" max="180"
+          <div class="fx-slider" data-desktop-feature="systemMemoryPurge"><label>定时释放(分)</label><input id="fx-memory-interval" type="range" min="5" max="180"
               step="1"><output></output></div>
-          <div class="fx-slider"><label>占用阈值(%)</label><input id="fx-memory-threshold" type="range" min="50" max="98"
+          <div class="fx-slider" data-desktop-feature="systemMemoryPurge"><label>占用阈值(%)</label><input id="fx-memory-threshold" type="range" min="50" max="98"
               step="1"><output></output></div>
           <div class="memory-action-row">
             <button class="fx-mini-btn ghost" type="button" onclick="runAppMemoryTrim('manual')">压缩播放器</button>
-            <button class="fx-mini-btn ghost" type="button" onclick="runSystemMemoryPurge(false)">系统释放</button>
-            <button class="fx-mini-btn ghost" type="button" onclick="runSystemMemoryPurge(true)">提权释放</button>
+            <button class="fx-mini-btn ghost" type="button" data-desktop-feature="systemMemoryPurge" onclick="runSystemMemoryPurge(false)">系统释放</button>
+            <button class="fx-mini-btn ghost" type="button" data-desktop-feature="systemMemoryPurge" onclick="runSystemMemoryPurge(true)">提权释放</button>
           </div>
           <div class="fx-section-label">本地缓存</div>
           <div class="cache-storage-panel" id="cache-storage-panel">
@@ -1074,8 +1075,8 @@
             <code class="cache-storage-path small" id="cache-storage-chromium-path">—</code>
             <div class="cache-storage-row"><span>节奏分析缓存</span><b id="cache-storage-beatmaps-size">—</b></div>
             <code class="cache-storage-path small" id="cache-storage-beatmaps-path">—</code>
-            <div class="cache-storage-row"><span>Wallpaper Engine 静音场景缓存</span><b id="cache-storage-wallpaper-size">—</b></div>
-            <code class="cache-storage-path small" id="cache-storage-wallpaper-path">—</code>
+            <div class="cache-storage-row" data-desktop-feature="wallpaperEngine"><span>Wallpaper Engine 静音场景缓存</span><b id="cache-storage-wallpaper-size">—</b></div>
+            <code class="cache-storage-path small" id="cache-storage-wallpaper-path" data-desktop-feature="wallpaperEngine">—</code>
             <div class="cache-storage-row muted"><span>设置与登录资料（安全固定）</span><b id="cache-storage-userdata-size">—</b></div>
             <code class="cache-storage-path small" id="cache-storage-userdata-path">—</code>
             <div class="fx-sub cache-storage-note" id="cache-storage-note">歌词缓存立即切换；网络、节奏分析与 WE 静音场景缓存目录在下次重启后切换。</div>

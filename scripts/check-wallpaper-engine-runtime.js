@@ -235,6 +235,12 @@ function makeWindowController(records = []) {
 
 async function main() {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-we-runtime-'));
+  // Every mock runtime owns its cache inside the fixture root, including
+  // cases that do not override nativeTempPath explicitly.
+  const fixtureRuntime = (options) => new WallpaperEngineRuntime({
+    nativeTempPath: path.join(temp, 'native-default'),
+    ...options,
+  });
   const steamLibrary = path.join(temp, 'SteamLibrary');
   const engineRoot = path.join(steamLibrary, 'steamapps', 'common', 'wallpaper_engine');
   const executable = path.join(engineRoot, 'wallpaper64.exe');
@@ -280,7 +286,7 @@ async function main() {
   let captureSourceId = 'window:4242:0';
   let partialTitleOnlyPolls = 0;
   let exposeGlassCaptureSource = false;
-  const runtime = new WallpaperEngineRuntime({
+  const runtime = fixtureRuntime({
     platform: 'win32',
     arch: 'x64',
     discoverSteamLibraries: async () => [steamLibrary],
@@ -353,7 +359,7 @@ async function main() {
     end() { this.writableEnded = true; },
   };
   stalledLayeringChild.kill = () => true;
-  const stalledLayeringRuntime = new WallpaperEngineRuntime({
+  const stalledLayeringRuntime = fixtureRuntime({
     platform: 'win32',
     now: () => stalledLayeringClock,
     sleep: async (milliseconds) => { stalledLayeringClock += Number(milliseconds) || 0; },
@@ -384,7 +390,7 @@ async function main() {
   stalledLayeringRuntime.active = null;
 
   const spacedControlCalls = [];
-  const spacedControlRuntime = new WallpaperEngineRuntime({
+  const spacedControlRuntime = fixtureRuntime({
     platform: 'win32',
     useDesktopShellBroker: false,
     controlExecFile: makeTransientControlRecorder(spacedControlCalls),
@@ -747,7 +753,7 @@ async function main() {
     const failedDwmSpawns = [];
     const failedDwmCommands = [];
     const failedDwmRuntimeSpawns = [];
-    const failedDwmRuntime = new WallpaperEngineRuntime({
+    const failedDwmRuntime = fixtureRuntime({
       platform: 'win32',
       arch: 'x64',
       discoverSteamLibraries: async () => [steamLibrary],
@@ -815,7 +821,7 @@ async function main() {
     let coldReadyProbeCalls = 0;
     let coldSourcePolls = 0;
     let coldTransientBeforeSource = null;
-    const coldRuntime = new WallpaperEngineRuntime({
+    const coldRuntime = fixtureRuntime({
       platform: 'win32',
       arch: 'x64',
       discoverSteamLibraries: async () => [steamLibrary],
@@ -876,7 +882,7 @@ async function main() {
     const timeoutTransientControls = [];
     let timeoutClock = 0;
     let timeoutProcessProbeCalls = 0;
-    const timeoutRuntime = new WallpaperEngineRuntime({
+    const timeoutRuntime = fixtureRuntime({
       platform: 'win32',
       arch: 'x64',
       discoverSteamLibraries: async () => [steamLibrary],
@@ -917,7 +923,7 @@ async function main() {
     let probeFailureWallClock = 0;
     let probeFailureCalls = 0;
     const probeFailureSleepRequests = [];
-    const probeFailureRuntime = new WallpaperEngineRuntime({
+    const probeFailureRuntime = fixtureRuntime({
       platform: 'win32',
       arch: 'x64',
       discoverSteamLibraries: async () => [steamLibrary],
@@ -956,7 +962,7 @@ async function main() {
     const cachePidSpawns = [];
     const cachePidReadyObservations = [];
     let cachePid = 5101;
-    const cachePidRuntime = new WallpaperEngineRuntime({
+    const cachePidRuntime = fixtureRuntime({
       platform: 'win32',
       arch: 'x64',
       discoverSteamLibraries: async () => [steamLibrary],
@@ -1010,7 +1016,7 @@ async function main() {
     let lateElevationProbeCalls = 0;
     const lateElevationStarted = new Promise((resolve) => { notifyLateElevation = resolve; });
     const lateElevationGate = new Promise((resolve) => { releaseLateElevation = () => resolve(false); });
-    const lateOpenRuntime = new WallpaperEngineRuntime({
+    const lateOpenRuntime = fixtureRuntime({
       platform: 'win32',
       arch: 'x64',
       discoverSteamLibraries: async () => [steamLibrary],
@@ -1066,7 +1072,7 @@ async function main() {
     const closeFalseSpawns = [];
     let closeFalseEmbedCalls = 0;
     let closeFalseNativeCloseCalls = 0;
-    const closeFalseRuntime = new WallpaperEngineRuntime({
+    const closeFalseRuntime = fixtureRuntime({
       platform: 'win32',
       arch: 'x64',
       discoverSteamLibraries: async () => [steamLibrary],
@@ -1186,7 +1192,7 @@ async function main() {
       return child;
     };
     let relaunchElevationEmbedCalls = 0;
-    relaunchElevationRuntime = new WallpaperEngineRuntime({
+    relaunchElevationRuntime = fixtureRuntime({
       platform: 'win32',
       arch: 'x64',
       discoverSteamLibraries: async () => [steamLibrary],
@@ -1293,7 +1299,7 @@ async function main() {
     let releaseSingleFlightEmbed;
     const singleFlightEmbedStarted = new Promise((resolve) => { notifySingleFlightEmbed = resolve; });
     const singleFlightEmbedGate = new Promise((resolve) => { releaseSingleFlightEmbed = resolve; });
-    const singleFlightRuntime = new WallpaperEngineRuntime({
+    const singleFlightRuntime = fixtureRuntime({
       platform: 'win32',
       arch: 'x64',
       discoverSteamLibraries: async () => [steamLibrary],
@@ -1399,7 +1405,7 @@ async function main() {
     fs.writeFileSync(invalidColdEngineExecutable, 'untrusted engine fixture', 'utf8');
     const invalidColdEngineSignatureCalls = [];
     const invalidColdEngineSpawns = [];
-    const invalidColdEngineRuntime = new WallpaperEngineRuntime({
+    const invalidColdEngineRuntime = fixtureRuntime({
       platform: 'win32',
       arch: 'x64',
       discoverSteamLibraries: async () => [invalidColdEngineSteamLibrary],
@@ -1428,7 +1434,7 @@ async function main() {
 
     const coldFirstSuccessSpawns = [];
     let coldFirstProcessProbeCalls = 0;
-    const coldFirstSuccessRuntime = new WallpaperEngineRuntime({
+    const coldFirstSuccessRuntime = fixtureRuntime({
       platform: 'win32',
       arch: 'x64',
       discoverSteamLibraries: async () => [steamLibrary],
@@ -1467,7 +1473,7 @@ async function main() {
     const scenePak = path.join(projectRoot, 'scene.pak');
     writeScenePackage(scenePak, { objects: [] }, '.pak');
     const pakSpawns = [];
-    const pakRuntime = new WallpaperEngineRuntime({
+    const pakRuntime = fixtureRuntime({
       platform: 'win32',
       discoverSteamLibraries: async () => [steamLibrary],
       engineProcessProbe: async () => true,
@@ -1506,7 +1512,7 @@ async function main() {
       objects: [{ sound: ['sounds/music.ogg'], startsilent: false, volume: 1 }],
     }, '.pak');
     const manifestPakSpawns = [];
-    const manifestPakRuntime = new WallpaperEngineRuntime({
+    const manifestPakRuntime = fixtureRuntime({
       platform: 'win32',
       discoverSteamLibraries: async () => [steamLibrary],
       engineProcessProbe: async () => true,
@@ -1548,7 +1554,7 @@ async function main() {
     const muteRetryControls = [];
     let muteRetryClock = 0;
     let muteRetryAttempts = 0;
-    const muteRetryRuntime = new WallpaperEngineRuntime({
+    const muteRetryRuntime = fixtureRuntime({
       platform: 'win32',
       discoverSteamLibraries: async () => [steamLibrary],
       engineProcessProbe: async () => true,
@@ -1618,7 +1624,7 @@ async function main() {
     const brokerCalls = [];
     const brokerDirectSpawns = [];
     let elevationProbeCalls = 0;
-    const brokerRuntime = new WallpaperEngineRuntime({
+    const brokerRuntime = fixtureRuntime({
       platform: 'win32',
       discoverSteamLibraries: async () => [steamLibrary],
       engineProcessProbe: async () => true,
@@ -1718,7 +1724,7 @@ async function main() {
 
     const conservativeBrokerCalls = [];
     const conservativeDirectSpawns = [];
-    const conservativeRuntime = new WallpaperEngineRuntime({
+    const conservativeRuntime = fixtureRuntime({
       platform: 'win32',
       discoverSteamLibraries: async () => [steamLibrary],
       engineProcessProbe: async () => true,
@@ -1745,7 +1751,7 @@ async function main() {
 
     const badSignatureCalls = [];
     const blockedSpawns = [];
-    const invalidSignerRuntime = new WallpaperEngineRuntime({
+    const invalidSignerRuntime = fixtureRuntime({
       platform: 'win32',
       discoverSteamLibraries: async () => [steamLibrary],
       engineProcessProbe: async () => true,
@@ -1766,7 +1772,7 @@ async function main() {
     assert.strictEqual(badSignatureCalls.length, 1, 'invalid signature status should be cached between probe and start');
     assert.strictEqual(blockedSpawns.length, 0, 'an untrusted executable must never be started');
 
-    const executableTargetRuntime = new WallpaperEngineRuntime({
+    const executableTargetRuntime = fixtureRuntime({
       platform: 'win32',
       discoverSteamLibraries: async () => [steamLibrary],
       engineProcessProbe: async () => true,
@@ -1793,7 +1799,7 @@ async function main() {
     let firstPollNotified = false;
     const firstSleep = new Promise((resolve) => { releaseFirstSleep = resolve; });
     const firstPoll = new Promise((resolve) => { notifyFirstPoll = resolve; });
-    const concurrentRuntime = new WallpaperEngineRuntime({
+    const concurrentRuntime = fixtureRuntime({
       platform: 'win32',
       discoverSteamLibraries: async () => [steamLibrary],
       engineProcessProbe: async () => true,
@@ -1841,7 +1847,7 @@ async function main() {
 
     const switchSpawns = [];
     const switchWindowCalls = [];
-    const switchRuntime = new WallpaperEngineRuntime({
+    const switchRuntime = fixtureRuntime({
       platform: 'win32',
       discoverSteamLibraries: async () => [steamLibrary],
       engineProcessProbe: async () => true,
@@ -1912,7 +1918,7 @@ async function main() {
     const replacementCloseFailureDwmSpawns = [];
     const replacementCloseFailureDwmCommands = [];
     let replacementCloseAttempts = 0;
-    const replacementCloseFailureRuntime = new WallpaperEngineRuntime({
+    const replacementCloseFailureRuntime = fixtureRuntime({
       platform: 'win32',
       discoverSteamLibraries: async () => [steamLibrary],
       engineProcessProbe: async () => true,
@@ -2047,7 +2053,7 @@ async function main() {
     let refreshRaceStarted = false;
     const refreshPollGate = new Promise((resolve) => { releaseRefreshPoll = resolve; });
     const refreshPollStarted = new Promise((resolve) => { notifyRefreshPoll = resolve; });
-    const refreshRaceRuntime = new WallpaperEngineRuntime({
+    const refreshRaceRuntime = fixtureRuntime({
       platform: 'win32',
       discoverSteamLibraries: async () => [steamLibrary],
       engineProcessProbe: async () => true,

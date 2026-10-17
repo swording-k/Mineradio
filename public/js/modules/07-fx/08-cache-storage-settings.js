@@ -41,11 +41,14 @@ function applyMineradioCacheSettings(snapshot) {
   setMineradioCacheStorageText('cache-storage-userdata-size', formatMineradioCacheBytes(usage.userDataBytes));
   var restartButton = mineradioCacheStorageNode('cache-storage-restart');
   if (restartButton) restartButton.hidden = !settings.restartRequired;
+  var cacheKinds = typeof isMacDesktop === 'function' && isMacDesktop()
+    ? '封面、网络、音频分片与节奏分析'
+    : '封面、网络、音频分片、节奏分析与 WE 静音场景';
   setMineradioCacheStorageText(
     'cache-storage-note',
     settings.restartRequired
-      ? '歌词缓存已切换；封面、网络、音频分片、节奏分析与 WE 静音场景将在重启后改用新目录。'
-      : '歌词缓存立即生效；封面、网络、音频分片、节奏分析与 WE 静音场景已使用此目录。'
+      ? '歌词缓存已切换；' + cacheKinds + '将在重启后改用新目录。'
+      : '歌词缓存立即生效；' + cacheKinds + '已使用此目录。'
   );
 }
 

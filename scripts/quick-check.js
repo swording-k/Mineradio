@@ -210,6 +210,18 @@ function runGestureCameraPermissionRegressionCheck() {
   process.stdout.write(result.stdout || '');
 }
 
+function runDesktopPlatformRegressionCheck() {
+  logStep('macOS and Windows desktop platform regression');
+  const testFiles = ['mac-desktop.test.js', 'mac-renderer-platform.test.js']
+    .map(file => path.join(appRoot, 'tests', file));
+  const result = spawnSync(process.execPath, ['--test', ...testFiles], { cwd: appRoot, encoding: 'utf8' });
+  process.stdout.write(result.stdout || '');
+  if (result.status !== 0) {
+    process.stderr.write(result.stderr || '');
+    fail('desktop platform regression failed');
+  }
+}
+
 function runGesturePlayerActionsRegressionCheck() {
   logStep('Gesture player actions regression');
   const testFile = path.join(appRoot, 'tests', 'gesture-player-actions.test.js');
@@ -458,7 +470,15 @@ function checkMainWindowChrome() {
   const snippet = text.slice(mainWindowIndex, mainWindowIndex + 900);
   if (!/frame:\s*false/.test(snippet)) fail('main window is not configured as frame:false');
   if (!/transparent:\s*true/.test(snippet)) fail('main window is not configured as transparent:true');
-  console.log('[OK] Main player window still uses frame:false and transparent:true.');
+  if (!snippet.includes('...mainWindowPlatformOptions()')) fail('main window is missing its native platform options');
+  const { mainWindowPlatformOptions } = require('../desktop/platform-support');
+  const windowsOptions = { frame: false, transparent: true, ...mainWindowPlatformOptions('win32') };
+  const macOptions = { frame: false, transparent: true, ...mainWindowPlatformOptions('darwin') };
+  if (windowsOptions.frame !== false || windowsOptions.transparent !== true) fail('Windows window chrome changed');
+  if (macOptions.frame !== true || macOptions.titleBarStyle !== 'hiddenInset' || macOptions.transparent !== false) {
+    fail('macOS window must use its native inset traffic-light controls');
+  }
+  console.log('[OK] Windows keeps transparent frameless chrome; macOS uses native inset window controls.');
 }
 
 function checkBackgroundTransparencyControlsGuard() {
@@ -584,7 +604,7 @@ function checkWallpaperEngineImportGuard() {
     || !/'applyProperties'/.test(runtimeText)
     || !/RAW~\(\$\{JSON\.stringify\(properties\)\}\)~END/.test(runtimeText)
     || !/windowsVerbatimArguments:\s*!!verbatimArgs/.test(runtimeText)
-    || !/cwd:\s*path\.dirname\(executable\)/.test(runtimeText)
+    || !/cwd:\s*path\.win32\.dirname\(executable\)/.test(runtimeText)
     || /['"]mute['"]/.test(runtimeText)
     || !/openWallpaperEngineProjectDetails/.test(rendererText)
     || !/wallpaper-engine-details-drawer/.test(htmlText)
@@ -683,11 +703,14 @@ function checkWallpaperEngineImportGuard() {
     || !/const recoveryOnly = !ownsCurrentJob \|\| !operationCurrent/.test(wallpaperBoundsScheduleBlock)) {
     fail('Wallpaper Engine late capture acknowledgements and stale frozen bounds jobs must recover without reviving an old session');
   }
-  if (!/win\.on\('enter-full-screen'[\s\S]{0,420}scheduleWallpaperEngineHostBoundsRestart\(win, 'enter-full-screen'\)/.test(mainText)
-    || !/win\.on\('leave-full-screen'[\s\S]{0,420}scheduleWallpaperEngineHostBoundsRestart\(win, 'leave-full-screen'\)/.test(mainText)
-    || !/win\.on\('enter-html-full-screen'[\s\S]{0,420}scheduleWallpaperEngineHostBoundsRestart\(win, 'enter-html-full-screen'\)/.test(mainText)
-    || !/win\.on\('leave-html-full-screen'[\s\S]{0,420}scheduleWallpaperEngineHostBoundsRestart\(win, 'leave-html-full-screen'\)/.test(mainText)
-    || !/forceVisibleHost:\s*true/.test(wallpaperBoundsScheduleBlock)) {
+  const fullscreenRestartEvents = ['enter-full-screen', 'leave-full-screen', 'enter-html-full-screen', 'leave-html-full-screen'];
+  const fullscreenRestartsPresent = fullscreenRestartEvents.every((eventName) => {
+    const start = mainText.indexOf(`  win.on('${eventName}',`);
+    const end = mainText.indexOf('\n  });', start);
+    return start >= 0 && end > start && mainText.slice(start, end)
+      .includes(`scheduleWallpaperEngineHostBoundsRestart(win, '${eventName}')`);
+  });
+  if (!fullscreenRestartsPresent || !/forceVisibleHost:\s*true/.test(wallpaperBoundsScheduleBlock)) {
     fail('Wallpaper Engine native and HTML fullscreen transitions must explicitly re-arm the authoritative bounds restart');
   }
   const wallpaperFreezeFrameBlock = rendererText.slice(
@@ -3555,8 +3578,12 @@ function checkShuffleQueueOrderGuard() {
 }
 
 function electronExecutable() {
-  const exe = path.join(appRoot, 'node_modules', 'electron', 'dist', 'electron.exe');
-  return fs.existsSync(exe) ? exe : null;
+  try {
+    const exe = process.env.MINERADIO_QA_ELECTRON || require('electron');
+    return typeof exe === 'string' && fs.existsSync(exe) ? exe : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 function runtimeQaScript() {
@@ -5635,6 +5662,7 @@ async function main() {
   runWallpaperEngineMinimizeResidentRegressionCheck();
   runWallpaperEngineWin10YellowBorderRegressionCheck();
   runGestureCameraPermissionRegressionCheck();
+  runDesktopPlatformRegressionCheck();
   runGesturePlayerActionsRegressionCheck();
   runGestureRuntimeLifecycleRegressionCheck();
   runCuratedVisualPresetsRegressionCheck();
@@ -5688,12 +5716,22 @@ async function main() {
     runElectronRuntimeCheck();
     runMainStartupRecoveryCheck();
   }
-  else console.log('\n== Electron runtime smoke check ==\n[SKIP] Fast/static mode. Use quick-check.bat full to enable it.');
+  else console.log('\n== Electron runtime smoke check ==\n[SKIP] Node-only mode. Use node scripts/quick-check.js --electron to enable it.');
 }
+
+// Native Windows runtimes are also exercised through mocks on macOS/Linux.
+// Keep their default cache away from both the checkout and real user data.
+const quickCheckNativeTemp = fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-quick-check-native-'));
+const previousNativeTemp = process.env.MINERADIO_NATIVE_TEMP_DIR;
+process.env.MINERADIO_NATIVE_TEMP_DIR = quickCheckNativeTemp;
 
 main().then(function () {
   console.log('\nAll checks passed.');
 }).catch(function (error) {
   console.error(`\n[FAIL] ${error.message || error}`);
-  process.exit(1);
+  process.exitCode = 1;
+}).finally(function () {
+  if (previousNativeTemp === undefined) delete process.env.MINERADIO_NATIVE_TEMP_DIR;
+  else process.env.MINERADIO_NATIVE_TEMP_DIR = previousNativeTemp;
+  fs.rmSync(quickCheckNativeTemp, { recursive: true, force: true });
 });
