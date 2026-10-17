@@ -74,3 +74,18 @@ test('signed Mac metadata enables a verified VIP full track while preserving the
  assert.equal(denied.playable,false);assert.equal(denied.reason,'vip_required');assert(!denied.url);
  assert.equal(requests,2);
 });
+
+test('Windows and Linux never read Mac signer credentials or start its helper',async()=>{
+ const fs=require('node:fs'),vm=require('node:vm'),childProcess=require('node:child_process');
+ const source=fs.readFileSync(require.resolve('../desktop/qishui-native-playback'),'utf8');
+ for(const platform of ['win32','linux']){
+   const sandbox={module:{exports:{}},process:{platform,arch:'x64',env:{QISHUI_QR_CONFIG_FILE:'fixture'}},
+     require:specifier=>{
+       if(specifier==='node:fs')return {...fs,promises:{...fs.promises,readFile:()=>assert.fail('must not read Mac identity on '+platform)}};
+       if(specifier==='node:child_process')return {...childProcess,spawn:()=>assert.fail('must not start Mac helper on '+platform)};
+       return require(specifier);
+     }};
+   vm.runInNewContext(source,sandbox,{filename:'qishui-native-playback.js'});
+   assert.equal(await sandbox.module.exports.prepareTrackRequest('track','sessionid=fixture'),null);
+ }
+});
