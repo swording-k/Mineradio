@@ -10,7 +10,7 @@ need repeated merging and diverge.
 Shared UI, queue and provider logic remain common. Native window behavior,
 permissions, tray, lyrics overlays, system integration and signing belong in
 platform capability/adaptor modules. Platform-specific work must be gated by the
-actual OS. For example, the pending Mac Qishui adapter enters only on `darwin`;
+actual OS. For example, the Mac Qishui adapter enters only on `darwin`;
 Windows keeps its existing request path. Shared-file changes still require both
 OS checks, including unaffected fallback behavior.
 
@@ -36,7 +36,9 @@ it. Do not create empty iOS repositories merely to match device names.
 6. Package a candidate on the target runner. Use the manual `Desktop CI` input
    `build_candidates=true` to store unsigned QA packages as 14-day Actions
    artifacts. This does not create a public Release or change the website.
-7. Promote only after the release gate below and explicit user authorization.
+7. Stable promotion requires the gate below and explicit user authorization.
+   A preview may ship earlier when the user explicitly requests it, with known
+   limitations and outstanding acceptance recorded; never label it stable.
 
 Use the [Mac acceptance milestone](https://github.com/swording-k/Mineradio/milestone/1)
 and [Issues](https://github.com/swording-k/Mineradio/issues) as the active tracker.
@@ -102,7 +104,8 @@ release. Installation/upgrade/uninstall are tested on candidates, not each edit.
   issues. Mac and Windows may release on different schedules. Preserve each
   platform's last accepted download until its replacement passes acceptance.
 
-The current explicit hold is recorded in `docs/RELEASE_STATUS.md`.
+Current preview authorization and remaining acceptance are recorded in
+`docs/RELEASE_STATUS.md`.
 
 ## Official references
 

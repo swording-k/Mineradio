@@ -5,16 +5,21 @@ current distribution and acceptance records; update this snapshot at promotion.
 
 | Channel | Source / package | Status |
 | --- | --- | --- |
-| Public macOS | `v2.2.0-community.2`, source `9e839e8`, Apple Silicon | Existing signed preview; not notarized. Website remains on this version. |
-| Local macOS candidate | branch `fix/qishui-full-playback`, commit `26fc655` | Installed on owner's Mac. Qishui Mac 2.9.1 dependency, tests and real full playback verified. Long-run/user acceptance and Windows regression pending. |
-| community.3 Release | tag `v2.2.0-community.3` | **Draft only.** Upload interrupted at user's request. Not stable, not a public download. |
+| Public macOS | `v2.2.0-community.3`, source `26fc655`, Apple Silicon | Developer ID signed preview with locally verified full Qishui playback; not notarized. |
+| Local macOS | Installed runtime from `26fc655`; fix merged via PR #8 | Same signed runtime as public community.3. Official Qishui Mac 2.9.1 dependency. Long-run/user acceptance pending; Windows/macOS code checks passed. |
+| community.3 channel | tag `v2.2.0-community.3` | User explicitly authorized public preview after the earlier hold; this is not a stable release. |
 | Public Windows | upstream `XxHuberrr/Mineradio-paused` v2.2.0 | Original upstream EXE; this community has not performed Windows native acceptance. |
 | iPad / iPhone | none | Not implemented or distributed. |
 
-The user explicitly requested holding new installers until stability acceptance.
-Website recording/layout updates are independent and may publish without changing
-the two current download versions. Never promote an installer merely because a
-website is ready or a build is green.
+The user initially held installers, then explicitly requested that the website
+provide the Mac build with the Qishui fix. Publish community.3 as a preview and
+keep remaining acceptance visible; Windows remains the upstream EXE. Do not
+promote future stable releases without their own acceptance.
+
+Windows/macOS code checks for the fix passed in run `39024986213`. The baseline
+main Windows and macOS QA packaging passed in run `39025140274`; these internal
+artifacts are not proof of Windows GUI/audio acceptance or replacements for the
+upstream Windows download.
 
 ## Acceptance tracking
 
@@ -33,3 +38,6 @@ website is ready or a build is green.
 
 No above Issue is resolved solely by creating it or merging code. Actual native
 results and published version determine when a playback/window issue can close.
+
+- [#10 resilient video playback](https://github.com/swording-k/Mineradio/issues/10):
+  native video fallback, cache versions and clearer product/download information.

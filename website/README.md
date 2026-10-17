@@ -18,15 +18,19 @@ and H.264 / yuv420p / fast-start compressed to 1280 px wide at 24 fps. Recording
 selection controls are excluded. Product animation is neither redrawn nor sped
 up. JPEG posters and descriptive VTT captions accompany the clips.
 
-The viewer uses standard HTML video. Muted autoplay is attempted only without
+The viewer uses standard HTML video with an actual HTML source URL, so the native
+controls work even if enhancement JavaScript cannot load. Direct MP4 links remain
+available. Script and stylesheet URLs carry deployment versions to avoid mixing
+old cached scripts with new markup. The viewer uses standard HTML video. Muted autoplay is attempted only without
 reduced-motion or save-data preference. User controls remain available. Hidden
 pages pause playback. Switching scenes loads only the selected clip.
 
 ## Downloads are separate from site deployments
 
-Mac download remains `v2.2.0-community.2`; Windows links directly to upstream
+Mac download provides `v2.2.0-community.3`; Windows links directly to upstream
 `XxHuberrr/Mineradio-paused` v2.2.0. The recordings show the owner's actual Mac
 runtime and do not establish feature parity or stability of either public package.
 
-Do not update installer URLs or publish community.3 until the stability gate in
-`docs/RELEASE_STATUS.md` is satisfied and the user authorizes promotion.
+The user explicitly authorized this Mac preview with the Qishui fix. Keep its
+official-client dependency and remaining stability/signing limitations visible.
+Windows keeps the original upstream package until its own acceptance.
