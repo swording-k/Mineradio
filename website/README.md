@@ -34,3 +34,10 @@ runtime and do not establish feature parity or stability of either public packag
 The user explicitly authorized this Mac preview with the Qishui fix. Keep its
 official-client dependency and remaining stability/signing limitations visible.
 Windows keeps the original upstream package until its own acceptance.
+
+The enhanced viewer loads each short MP4 with a bounded full-file fetch before
+playing a local object URL. This avoids observed embedded-browser remote range
+requests stalling after the initial 229376 bytes, while direct HTTP range probes
+succeed. Loading is cancelable (25-second timeout; 12 MiB maximum clip), stale
+scene requests abort, and old object URLs are revoked. Only the selected scene
+is held. HTML/direct-file fallbacks remain available without enhancement JS.
