@@ -22,8 +22,9 @@ function writeProject(root, name, manifest, files) {
 }
 
 async function main() {
-  // macOS exposes /var through a symlink; match the library's canonical paths.
-  const temp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'mineradio-we-')));
+  // Match the library's async realpath on macOS symlinks and Windows 8.3 aliases.
+  const tempBase = await fs.promises.realpath(os.tmpdir());
+  const temp = await fs.promises.realpath(fs.mkdtempSync(path.join(tempBase, 'mineradio-we-')));
   const libraryRoot = path.join(temp, 'library');
   const userData = path.join(temp, 'user-data');
   fs.mkdirSync(libraryRoot, { recursive: true });
@@ -193,7 +194,7 @@ async function main() {
   } finally {
     instance.dispose();
     const resolved = path.resolve(temp);
-    if (resolved.startsWith(path.resolve(os.tmpdir()) + path.sep)) fs.rmSync(resolved, { recursive: true, force: true });
+    if (resolved.startsWith(path.resolve(tempBase) + path.sep)) fs.rmSync(resolved, { recursive: true, force: true });
   }
 }
 

@@ -1,0 +1,75 @@
+name: Desktop CI
+
+on:
+  pull_request:
+    paths-ignore: ['website/**', 'docs/**', '*.md', '.github/ISSUE_TEMPLATE/**']
+  push:
+    branches: [main]
+    paths-ignore: ['website/**', 'docs/**', '*.md', '.github/ISSUE_TEMPLATE/**']
+  workflow_dispatch:
+    inputs:
+      build_candidates:
+        description: 'Build unsigned QA installers as workflow artifacts (never publish)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run check
+
+  candidate:
+    name: QA package (${{ matrix.os }})
+    if: github.event_name == 'workflow_dispatch' && inputs.build_candidates
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build Windows x64 installer
+        if: runner.os == 'Windows'
+        run: npm run build:win -- --x64 --publish never
+      - name: Build macOS native architecture preview
+        if: runner.os == 'macOS'
+        run: npm run build:mac:${{ runner.arch == 'ARM64' && 'arm64' || 'x64' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mineradio-QA-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip

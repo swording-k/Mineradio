@@ -1,9 +1,32 @@
-# Mineradio Apple 社区版产品站
+# Mineradio community product website
 
-无依赖静态页面。此网站介绍 swording-k 维护的独立衍生分支，不代表原作者官方发布渠道。
+Static HTML/CSS/JS, deployed from `website/` by GitHub Pages. No analytics,
+external font service or added frontend framework.
 
-本地预览：在仓库根目录运行 `python3 -m http.server 4173 --directory website`，访问 `http://localhost:4173`。
+Preview: `python3 -m http.server 4173 --bind 127.0.0.1 --directory website`.
 
-GitHub Pages 工作流部署 `website/`。下载链接指向本仓库实际 Release `v2.2.0-community.1`，对应源码 tag 与 SHA256 位于同一 Release。更新版本时应同时更新官网、安装包和源码 tag；只有完成签名、公证和验收后才修改预览状态文案。
+## Actual recordings
 
-`assets/mineradio-startup.png` 来自原项目 README，是实际启动界面。首页唱片为本网站 CSS 视觉示意，已明确标注，不是产品截图。网站不收集数据，不请求第三方字体或统计服务。
+The two source recordings were supplied by the project owner from their Mac:
+
+- `录屏2026-10-17 17.42.46.mov`: 8.5–22.5 seconds → cover particles.
+- `录屏2026-10-17 17.44.13.mov`: 0.45–5.10 seconds → lyric stage.
+
+Raw recordings remain outside Git. Web clips are cropped from 2940×1912 to
+2940×1848 (remove top 64 px), with the account region obscured, audio removed,
+and H.264 / yuv420p / fast-start compressed to 1280 px wide at 24 fps. Recording
+selection controls are excluded. Product animation is neither redrawn nor sped
+up. JPEG posters and descriptive VTT captions accompany the clips.
+
+The viewer uses standard HTML video. Muted autoplay is attempted only without
+reduced-motion or save-data preference. User controls remain available. Hidden
+pages pause playback. Switching scenes loads only the selected clip.
+
+## Downloads are separate from site deployments
+
+Mac download remains `v2.2.0-community.2`; Windows links directly to upstream
+`XxHuberrr/Mineradio-paused` v2.2.0. The recordings show the owner's actual Mac
+runtime and do not establish feature parity or stability of either public package.
+
+Do not update installer URLs or publish community.3 until the stability gate in
+`docs/RELEASE_STATUS.md` is satisfied and the user authorizes promotion.

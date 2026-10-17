@@ -25,7 +25,14 @@ test('Mac signing retains universal code and deduplicates framework aliases', t 
   const native = path.join(root, 'library');
   const alias = path.join(root, 'alias');
   fs.writeFileSync(native, Buffer.from('cafebabe00000000', 'hex'));
-  fs.symlinkSync(native, alias);
+  try { fs.symlinkSync(native, alias); }
+  catch (error) {
+    if (process.platform === 'win32' && ['EPERM', 'ENOTSUP'].includes(error.code)) {
+      t.skip('Windows runner does not permit symbolic links; native-file checks still run separately');
+      return;
+    }
+    throw error;
+  }
   const ignore = createDataFileFilter();
   assert.equal(ignore(native), false);
   assert.equal(ignore(alias), true, 'same native file only needs signing once');
