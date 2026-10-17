@@ -12,7 +12,7 @@
 
 ## 验证
 
-- `npm test`：209/209 通过。
+- `npm test`：212/212 通过。
 - `npm run check`：全部通过。
 - Apple Silicon `.app` 构建成功；构建产物和 `/Applications/Mineradio.app` 均通过 `codesign --verify --deep --strict`。
 - 已打开安装后的 2.2.0，实际窗口能进入主页。

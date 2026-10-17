@@ -74,3 +74,5 @@ npm run build:mac:release
 - 社区下载与官网在自己的 Release 和 GitHub Pages 提供。DMG、ZIP、SHA256 与对应 tag 源码应一并保留，签名、公证与运行验收分别标明。
 
 Mac 签名配置跳过单独签名语言包、图片、字体、WASM 和 V8 快照等非 Mach-O 数据文件；这些文件仍被 Framework 与应用的资源封印覆盖。可执行程序、Framework 与原生动态库仍完整签名并通过严格校验。
+
+签名钩子 `build/sign-macos.cjs` 复用 `@electron/osx-sign`，按 Mach-O 文件头识别原生代码而非按文件后缀猜测，并去除 Framework 符号链接的重复签名。根应用和嵌套应用/Framework 仍交给原签名工具处理。
