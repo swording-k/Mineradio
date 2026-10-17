@@ -2,7 +2,7 @@
 
 > **swording-k 社区分支**：本仓库在最新公开主线与原作者 Mac 适配源码基础上继续开发。产品名为 Mineradio，本分支由 swording-k 独立维护。原作者与第三方署名、GPL-3.0-only 许可证保持有效。
 >
-> **[产品网站](https://swording-k.github.io/Mineradio/) · [Mac 下载与版本说明](https://github.com/swording-k/Mineradio/releases/tag/v2.2.0-community.1) · [Mac 构建说明](docs/MACOS.md)**
+> **[产品网站](https://swording-k.github.io/Mineradio/) · [Mac 下载与版本说明](https://github.com/swording-k/Mineradio/releases/tag/v2.2.0-community.2) · [Mac 构建说明](docs/MACOS.md)**
 >
 > 当前 Apple Silicon 包为社区预览，分发签名及公证状态以 Release 为准；iPad 与 iPhone 尚未提供客户端。以下为原项目保留说明。
 

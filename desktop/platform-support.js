@@ -16,6 +16,8 @@ function mainWindowPlatformOptions(platform = process.platform) {
   if (platform !== 'darwin') return {};
   return {
     frame: true,
+    // Electron otherwise derives this from the shared fullscreen:false option.
+    fullscreenable: true,
     titleBarStyle: 'hiddenInset',
     transparent: false,
     backgroundColor: '#101018',

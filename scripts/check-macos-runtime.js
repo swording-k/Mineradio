@@ -223,6 +223,20 @@ async function runChild() {
     await until(async () => (await evaluate('window.desktopWindow.listLocalMusicLibrary()')).count === 1, 'native WAV file import');
     await until(() => evaluate('!!(audio && !audio.paused && audio.readyState >= 2 && audio.currentTime > 0.1 && /^mineradio-local:/.test(audio.currentSrc))'), 'real silent WAV playback', 15000);
     checks.push('native local WAV import and actual audio playback');
+    app.focus({ steal: true });
+    win.show();
+    win.focus();
+    assert.equal(win.isFullScreenable(), true);
+    await evaluate('window.desktopWindow.toggleFullscreen()');
+    await until(() => win.isFullScreen(), 'native full-screen entry');
+    await delay(1800);
+    const display = require('electron').screen.getDisplayMatching(win.getBounds());
+    assert(win.getBounds().width >= display.workArea.width, 'Full screen must fill the display width');
+    assert(win.getBounds().height >= display.workArea.height, 'Full screen must fill the usable display height');
+    await evaluate('window.desktopWindow.exitFullscreenWindowed()');
+    await until(() => !win.isFullScreen(), 'native full-screen exit');
+    await delay(1800);
+    checks.push('native macOS full-screen entry, display coverage and window restoration');
     const playbackState = () => evaluate('audio && ({ paused: audio.paused, ended: audio.ended, time: audio.currentTime, duration: audio.duration, src: audio.currentSrc, contextState: audioCtx && audioCtx.state })');
 
     const assertSameWindow = () => {
@@ -232,6 +246,9 @@ async function runChild() {
     const activate = async () => {
       app.show();
       app.emit('activate', {}, true);
+      app.focus({ steal: true });
+      win.show();
+      win.focus();
       await until(() => !app.isHidden() && win.isVisible() && !win.isMinimized(), 'Dock activation restores the existing window');
       await delay(350);
       assertSameWindow();

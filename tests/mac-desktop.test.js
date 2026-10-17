@@ -27,6 +27,8 @@ function run(code, values) {
 test('Mac has native title-bar controls and desktop lyrics without Windows-only capabilities', () => {
   assert.equal(mainWindowPlatformOptions('darwin').titleBarStyle, 'hiddenInset');
   assert.equal(mainWindowPlatformOptions('darwin').frame, true);
+  assert.equal(mainWindowPlatformOptions('darwin').fullscreenable, true,
+    'fullscreen:false must not disable the native macOS full-screen capability');
   assert.deepEqual(mainWindowPlatformOptions('win32'), {});
   assert.deepEqual(desktopCapabilities('darwin'), {
     fullDesktopMode: false, wallpaperEngine: false, desktopLyrics: true,

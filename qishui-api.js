@@ -3151,12 +3151,12 @@ function extractQishuiLyrics(payload) {
   return found;
 }
 
-async function fetchQishuiSeoTrack(trackId) {
+async function fetchQishuiSeoTrack(trackId, timeoutMs = 8000) {
   return requestJson(urlWithParams('https://beta-luna.douyin.com/luna/h5/seo_track', {
     track_id: trackId,
     device_platform: 'web',
   }), {
-    timeoutMs: 8000,
+    timeoutMs,
     headers: {
       'Accept': 'application/json,text/plain,*/*',
       'User-Agent': QISHUI_WEB_UA,
@@ -3215,7 +3215,9 @@ async function handleQishuiLyric(id, cookieText) {
 
 function qishuiPrimaryTrackFromV2(payload) {
   const data = (payload && payload.data) || payload || {};
-  return pickObject(data.track, data.track_info, data.trackInfo, payload && payload.track, payload && payload.track_info, payload && payload.trackInfo);
+  return pickObject(data.track, data.track_info, data.trackInfo,
+    data.seo_track && data.seo_track.track,
+    payload && payload.track, payload && payload.track_info, payload && payload.trackInfo);
 }
 
 function qishuiTrackPlayerFromV2(payload, track) {
@@ -3384,19 +3386,30 @@ async function handleQishuiSongUrl(opts, cookieText) {
   }
   const requestedQuality = normalizeText(opts.quality || '');
   let payload;
+  let checkedMembership;
+  let source = 'qishui-pc-track-v2';
   try {
     payload = await fetchQishuiPcTrackV2(id, cookie);
+    if (!Object.keys(qishuiPrimaryTrackFromV2(payload)).length) throw new Error('QISHUI_PC_TRACK_METADATA_EMPTY');
   } catch (err) {
     const checked = qishuiSessionExpired(err)
       ? { reauthRequired: true }
       : await fetchQishuiPlaybackMembership(cookie);
+    checkedMembership = checked;
     if (checked.reauthRequired) {
       return qishuiUnavailable('汽水音乐登录状态已失效，请重新扫码登录。', 'login_required', {
         loggedIn: false, webSession: false, reauthRequired: true,
         error: 'QISHUI_SESSION_EXPIRED', membershipKnown: false, vipLevel: 'unknown',
       });
     }
-    return qishuiUnavailable('Qishui did not return track playback metadata: ' + (err && err.message || String(err)), 'source_unavailable', {
+    try {
+      const publicPayload = await fetchQishuiSeoTrack(id, 3000);
+      const track = qishuiPrimaryTrackFromV2(publicPayload);
+      if (normalizeText(track.id || track.track_id) !== id) throw new Error('QISHUI_PUBLIC_TRACK_MISMATCH');
+      payload = publicPayload;
+      source = 'qishui-public-seo-track';
+    } catch (_) {
+      return qishuiUnavailable('Qishui did not return track playback metadata: ' + (err && err.message || String(err)), 'source_unavailable', {
       loggedIn: !!checked.sessionValidated,
       stale: !checked.sessionValidated,
       playbackKeyReady: false,
@@ -3407,10 +3420,11 @@ async function handleQishuiSongUrl(opts, cookieText) {
       isSvip: false,
       vipLabel: '未知会员状态',
       rawError: err && err.message || String(err),
-    });
+      });
+    }
   }
-  let membership = qishuiPlaybackMembershipFromPayload(payload);
-  if (!membership.membershipKnown) membership = await fetchQishuiPlaybackMembership(cookie);
+  let membership = checkedMembership || qishuiPlaybackMembershipFromPayload(payload);
+  if (!checkedMembership && !membership.membershipKnown) membership = await fetchQishuiPlaybackMembership(cookie);
   if (membership.reauthRequired) {
     return qishuiUnavailable('汽水音乐登录状态已失效，请重新扫码登录。', 'login_required', {
       loggedIn: false, webSession: false, reauthRequired: true,
@@ -3423,10 +3437,21 @@ async function handleQishuiSongUrl(opts, cookieText) {
   const trackRestriction = qishuiTrackPlaybackRestriction(payload);
   const requestRestriction = qishuiTrackPlaybackRestriction(opts);
   const requiredTier = qishuiHigherRequiredTier(trackRestriction.requiredTier, requestRestriction.requiredTier);
-  const cacheKey = 'track-v2|' + qishuiCookieFingerprint(cookie) + '|' + membershipKey + '|' + id + '|' + requestedQuality + '|' + requiredTier;
+  // The public H5 endpoint can return a server-truncated audition for VIP
+  // tracks. Only accept explicit, unencrypted standard-quality previews whose
+  // duration agrees with the audition metadata; full audio keeps its tier gate.
+  const publicTrack = qishuiPrimaryTrackFromV2(payload);
+  const auditionSeconds = qishuiNormalizeDurationSeconds(publicTrack.audition_info && publicTrack.audition_info.duration_ms);
+  const fullSeconds = qishuiNormalizeDurationSeconds(publicTrack.duration_ms || publicTrack.duration);
+  const publicPreview = source === 'qishui-public-seo-track' && auditionSeconds > 0 && auditionSeconds <= 120
+    ? qishuiBestStreamCandidate(collectQishuiTrackV2Streams(payload).streams.filter(stream =>
+      !stream.auth && qishuiStreamRequiredTier(stream) === 'free' && stream.duration > 0 &&
+      stream.duration <= auditionSeconds + 1 && stream.duration + 5 < fullSeconds))
+    : null;
+  const cacheKey = source + '|' + qishuiCookieFingerprint(cookie) + '|' + membershipKey + '|' + id + '|' + requestedQuality + '|' + requiredTier;
   return qishuiPlaybackCache.wrap(cacheKey, value => value.playable ? 4 * 60 * 1000 : 0, async () => {
     try {
-      if (!qishuiRequiredTierAllowed(requiredTier, membership)) {
+      if (!publicPreview && !qishuiRequiredTierAllowed(requiredTier, membership)) {
         const reason = !membership.membershipKnown
           ? 'membership_unknown'
           : (requiredTier === 'svip' ? 'svip_required' : 'vip_required');
@@ -3450,7 +3475,9 @@ async function handleQishuiSongUrl(opts, cookieText) {
           entitlementEvidence: trackRestriction.evidence.concat(requestRestriction.evidence),
         });
       }
-      const resolved = await resolveQishuiDownloadInfo(id, payload, cookie, membership);
+      const resolved = publicPreview
+        ? { track: publicTrack, best: publicPreview }
+        : await resolveQishuiDownloadInfo(id, payload, cookie, membership);
       const track = resolved.track || {};
       const stream = resolved.best;
       const duration = stream.duration || qishuiNormalizeDurationSeconds(track.duration_ms || track.duration || 0);
@@ -3478,7 +3505,7 @@ async function handleQishuiSongUrl(opts, cookieText) {
         size: Number(stream.size) || 0,
         duration,
         requestedQuality,
-        source: 'qishui-pc-track-v2',
+        source,
         encrypted: !!stream.auth,
       };
     } catch (err) {

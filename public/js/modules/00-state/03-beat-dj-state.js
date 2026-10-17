@@ -30,7 +30,7 @@ var beatAnalysisConfig = {
   delayMs: 1600,
   minPlaybackSec: 1.2,
   idleTimeout: 1400,
-  skipMusicTempoWhilePlaying: false
+  skipMusicTempoWhilePlaying: true
 };
 var beatCam = {
   nextIdx: 0,

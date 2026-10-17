@@ -32,6 +32,65 @@ const validProfile = { data: { my_info: { id: 'synthetic-user', nickname: 'Fixtu
 
 test.beforeEach(() => qishui._test.clearQishuiRuntimeCaches());
 
+function seoFixture(id, { vip = false, audition = 0, duration = 180 } = {}) {
+  return { seo_track: { track: { id, duration_ms: 180000,
+    label_info: { only_vip_playable: vip }, audition_info: { duration_ms: audition * 1000 },
+    track_player: { video_model: JSON.stringify({ video_duration: duration, video_list: [
+      { main_url: Buffer.from('https://media.example/public.m4a').toString('base64'),
+        video_meta: { bitrate: 64000, format: 'aac', gear_des_key: 'medium' } },
+    ] }) },
+  } } };
+}
+
+test('empty desktop metadata falls back to matching public full audio', async t => {
+  mockRequests(t, url => {
+    if (url.pathname === '/luna/pc/me') return { body: validProfile };
+    if (url.pathname === '/luna/h5/seo_track') return { body: seoFixture('public-full') };
+    return { body: '' };
+  });
+  const result = await qishui.handleQishuiSongUrl({ id: 'public-full' }, cookie);
+  assert.equal(result.playable, true);
+  assert.equal(result.trial, false);
+  assert.equal(result.source, 'qishui-public-seo-track');
+  assert.equal(result.duration, 180);
+});
+
+test('public VIP previews require explicit audition metadata and never expose full VIP audio', async t => {
+  let fixture = seoFixture('public-vip', { vip: true, audition: 30, duration: 30 });
+  mockRequests(t, url => {
+    if (url.pathname === '/luna/pc/me') return { body: validProfile };
+    if (url.pathname === '/luna/h5/seo_track') return { body: fixture };
+    return { body: '' };
+  });
+  const trial = await qishui.handleQishuiSongUrl({ id: 'public-vip' }, cookie);
+  assert.equal(trial.playable, true);
+  assert.equal(trial.trial, true);
+  assert.equal(trial.duration, 30);
+  qishui._test.clearQishuiRuntimeCaches();
+  fixture = seoFixture('public-vip', { vip: true, audition: 30, duration: 180 });
+  const full = await qishui.handleQishuiSongUrl({ id: 'public-vip' }, cookie);
+  assert.equal(full.playable, false);
+  assert.equal(full.reason, 'vip_required');
+  assert.equal(full.url || '', '');
+  qishui._test.clearQishuiRuntimeCaches();
+  fixture = seoFixture('public-vip', { vip: true, duration: 30 });
+  assert.equal((await qishui.handleQishuiSongUrl({ id: 'public-vip' }, cookie)).playable, false);
+});
+
+test('public fallback rejects mismatched tracks and does not run after explicit session expiry', async t => {
+  let seoCalls = 0, sessionExpired = false;
+  mockRequests(t, url => {
+    if (url.pathname === '/luna/pc/me') return { body: sessionExpired ? expired : validProfile };
+    if (url.pathname === '/luna/h5/seo_track') { seoCalls++; return { body: seoFixture('wrong-id') }; }
+    return { body: '' };
+  });
+  assert.equal((await qishui.handleQishuiSongUrl({ id: 'requested' }, cookie)).playable, false);
+  assert.equal(seoCalls, 1);
+  qishui._test.clearQishuiRuntimeCaches();sessionExpired = true;
+  assert.equal((await qishui.handleQishuiSongUrl({ id: 'requested' }, cookie)).reason, 'login_required');
+  assert.equal(seoCalls, 1);
+});
+
 test('expired official session cannot become a successful status or an empty synchronized library', async t => {
   let requests = 0;
   mockRequests(t, url => {
@@ -164,7 +223,7 @@ test('playback settles under a wall-clock deadline even when DNS or the response
   const result = await qishui.handleQishuiSongUrl({ id: 'never-connects' }, cookie);
   assert.equal(result.playable, false);
   assert.equal(result.stale, true);
-  assert.deepEqual(deadlines, [3000, 3000, 2500]);
+  assert.deepEqual(deadlines, [3000, 3000, 2500, 3000]);
   assert.doesNotMatch(result.message, /Invalid JSON/);
 });
 

@@ -106,6 +106,7 @@ function ensureMusicTempo() {
 }
 
 var musicTempoWorkerUrl = null;
+var cancelMusicTempoWorker = null;
 function getMusicTempoWorkerUrl() {
   if (musicTempoWorkerUrl) return musicTempoWorkerUrl;
   var code = [
@@ -132,17 +133,27 @@ async function analyzeMusicTempoInWorker(buffer, token) {
     await yieldToIdle(isHiddenForBackgroundOptimization() ? 20 : 180);
     if (token !== beatMapToken) return null;
     var channels = buffer.numberOfChannels;
-    var len = buffer.length;
+    // Tempo needs a representative excerpt, not another full-rate copy of
+    // the entire track. The four-band analysis still covers the whole song.
+    var analysisRate = Math.min(22050, buffer.sampleRate);
+    var sourceStep = buffer.sampleRate / analysisRate;
+    var len = Math.min(Math.floor(buffer.length / sourceStep), Math.floor(analysisRate * 90));
     var mono = new Float32Array(len);
     var chDataList = [];
     for (var ch = 0; ch < channels; ch++) chDataList.push(buffer.getChannelData(ch));
     var chScale = 1 / Math.max(1, channels);
-    var monoChunk = Math.max(4096, Math.floor(buffer.sampleRate * 0.70));
+    var monoChunk = Math.max(4096, Math.floor(analysisRate * 0.70));
     for (var monoStart = 0; monoStart < len; monoStart += monoChunk) {
       var monoEnd = Math.min(len, monoStart + monoChunk);
       for (var mi = monoStart; mi < monoEnd; mi++) {
         var sum = 0;
-        for (var ci = 0; ci < channels; ci++) sum += chDataList[ci][mi] * chScale;
+        var sampleAt = mi * sourceStep;
+        var sampleIndex = Math.floor(sampleAt);
+        var sampleMix = sampleAt - sampleIndex;
+        var nextIndex = Math.min(buffer.length - 1, sampleIndex + 1);
+        for (var ci = 0; ci < channels; ci++) {
+          sum += (chDataList[ci][sampleIndex] * (1 - sampleMix) + chDataList[ci][nextIndex] * sampleMix) * chScale;
+        }
         mono[mi] = sum;
       }
       if ((monoStart / monoChunk) % 2 === 1) {
@@ -150,39 +161,41 @@ async function analyzeMusicTempoInWorker(buffer, token) {
         if (token !== beatMapToken) return null;
       }
     }
+    if (cancelMusicTempoWorker) cancelMusicTempoWorker();
     var worker = new Worker(getMusicTempoWorkerUrl());
     return await new Promise(function (resolve) {
       var done = false;
-      var timer = setTimeout(function () {
-        if (done) return;
-        done = true;
-        worker.terminate();
-        resolve(null);
-      }, 16000);
-      worker.onmessage = function (ev) {
+      function finish(value) {
         if (done) return;
         done = true;
         clearTimeout(timer);
+        clearInterval(staleTimer);
+        if (cancelMusicTempoWorker === cancel) cancelMusicTempoWorker = null;
         worker.terminate();
+        resolve(value);
+      }
+      function cancel() { finish(null); }
+      cancelMusicTempoWorker = cancel;
+      var timer = setTimeout(cancel, 8000);
+      var staleTimer = setInterval(function () { if (token !== beatMapToken) cancel(); }, 150);
+      worker.onmessage = function (ev) {
+        if (done) return;
         var data = ev.data || {};
         if (!data.ok) {
           console.warn('music-tempo worker failed:', data.error);
-          resolve(null);
+          finish(null);
           return;
         }
-        resolve(data);
+        finish(token === beatMapToken ? data : null);
       };
       worker.onerror = function (err) {
         if (done) return;
-        done = true;
-        clearTimeout(timer);
-        worker.terminate();
         console.warn('music-tempo worker error:', err && err.message ? err.message : err);
-        resolve(null);
+        finish(null);
       };
       worker.postMessage({
         mono: mono.buffer,
-        sampleRate: buffer.sampleRate,
+        sampleRate: analysisRate,
         scriptUrl: location.origin + '/vendor/music-tempo.min.js'
       }, [mono.buffer]);
     });
